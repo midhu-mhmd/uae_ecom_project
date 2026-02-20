@@ -2,7 +2,6 @@ import React, { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Package,
-  CheckCircle2,
   AlertCircle,
   ArrowUpRight,
   ArrowDownRight,

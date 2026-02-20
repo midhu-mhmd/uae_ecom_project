@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 
-const ShrimpLoader = () => {
+const ShrimpLoader = ({ label }: { label?: string }) => {
     const containerRef = useRef(null);
 
     useEffect(() => {
@@ -102,7 +102,7 @@ const ShrimpLoader = () => {
                     </div>
 
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-1 opacity-60">
-                        Online Fish Market
+                        {label || "Online Fish Market"}
                     </p>
                 </div>
 

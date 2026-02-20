@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, User, MapPin, Phone, Heart, LogOut, Bell, Package, Menu, X, ChevronRight } from 'lucide-react';
+import { ShoppingCart, User, MapPin, Phone, LogOut, Bell, Package, Menu, X, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '../../../hooks';
 import { logout } from '../../../features/auth/authSlice';

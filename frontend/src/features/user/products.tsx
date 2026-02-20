@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { productsApi, type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingCart, Star, Heart, Filter, ArrowRight } from "lucide-react";
+import { Search, ShoppingCart, Star, Filter, ArrowRight } from "lucide-react";
 import { useAppDispatch } from "../../hooks";
 import { addToCart } from "../shop/cart/cartSlice";
 import ShrimpLoader from "../../components/loader/preloader";
@@ -10,13 +10,9 @@ import ShrimpLoader from "../../components/loader/preloader";
 // --- Extracted Memoized Product Card ---
 const ProductCard = memo(({
     product,
-    isWishlisted,
-    onToggleWishlist,
     onAddToCart
 }: {
     product: ProductDto;
-    isWishlisted: boolean;
-    onToggleWishlist: (e: React.MouseEvent, p: ProductDto) => void;
     onAddToCart: (e: React.MouseEvent, p: ProductDto) => void;
 }) => {
     return (
@@ -53,17 +49,6 @@ const ProductCard = memo(({
                             </span>
                         )}
                     </div>
-
-                    {/* Wishlist Button */}
-                    {/* <button
-                        onClick={(e) => onToggleWishlist(e, product)}
-                        className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 z-20 ${isWishlisted
-                            ? "bg-red-500 text-white shadow-md shadow-red-500/30 scale-110"
-                            : "bg-white/90 backdrop-blur-sm text-slate-400 hover:text-red-500 hover:scale-110"
-                            }`}
-                    >
-                        <Heart size={14} fill={isWishlisted ? "currentColor" : "none"} />
-                    </button> */}
 
                     {/* Quick Add Button */}
                     <button
@@ -133,7 +118,6 @@ const UserProductsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [wishlistIds, setWishlistIds] = useState<number[]>([]);
 
     // Pagination state
     const [displayLimit, setDisplayLimit] = useState(12);
@@ -182,52 +166,6 @@ const UserProductsPage: React.FC = () => {
             clearTimeout(timeout);
         };
     }, [searchTerm, category]);
-
-    // Load wishlist
-    useEffect(() => {
-        const loadWishlist = () => {
-            try {
-                const stored = localStorage.getItem("wishlist");
-                if (stored) {
-                    const items: ProductDto[] = JSON.parse(stored);
-                    setWishlistIds(items.map(p => p.id));
-                }
-            } catch (e) {
-                console.error("Failed to parse wishlist", e);
-            }
-        };
-        loadWishlist();
-
-        window.addEventListener("storage", loadWishlist);
-        return () => window.removeEventListener("storage", loadWishlist);
-    }, []);
-
-    // Memoize wishlist check for performance
-    const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
-
-    const toggleWishlist = useCallback((e: React.MouseEvent, product: ProductDto) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        try {
-            const stored = localStorage.getItem("wishlist");
-            let items: ProductDto[] = stored ? JSON.parse(stored) : [];
-
-            if (wishlistSet.has(product.id)) {
-                items = items.filter(item => item.id !== product.id);
-                setWishlistIds(prev => prev.filter(id => id !== product.id));
-            } else {
-                if (!items.find(item => item.id === product.id)) {
-                    items.push(product);
-                }
-                setWishlistIds(prev => [...prev, product.id]);
-            }
-            localStorage.setItem("wishlist", JSON.stringify(items));
-            window.dispatchEvent(new Event("storage"));
-        } catch (err) {
-            console.error(err);
-        }
-    }, [wishlistSet]);
 
     const handleAddToCart = useCallback((e: React.MouseEvent, product: ProductDto) => {
         e.preventDefault();
@@ -316,8 +254,6 @@ const UserProductsPage: React.FC = () => {
                                     <ProductCard
                                         key={product.id}
                                         product={product}
-                                        isWishlisted={wishlistSet.has(product.id)}
-                                        onToggleWishlist={toggleWishlist}
                                         onAddToCart={handleAddToCart}
                                     />
                                 ))}

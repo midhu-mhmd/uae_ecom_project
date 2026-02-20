@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Truck, ShieldCheck, Clock, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* ─── Banner Data ─────────────────────────────────────── */
@@ -54,13 +54,7 @@ const banners = [
   },
 ];
 
-/* ─── Trust badges ────────────────────────────────────── */
-const trustBadges = [
-  { icon: Truck, title: 'Express Delivery', desc: 'Fresh to your door', color: 'text-blue-600', bg: 'bg-blue-50' },
-  { icon: ShieldCheck, title: 'Quality Checked', desc: 'No chemicals used', color: 'text-green-600', bg: 'bg-green-50' },
-  { icon: Clock, title: 'Freshness Guaranteed', desc: 'Catch to kitchen', color: 'text-orange-600', bg: 'bg-orange-50' },
-  { icon: Star, title: 'Premium Selection', desc: 'Hand-picked daily', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-];
+
 
 const Hero: React.FC = () => {
   const [current, setCurrent] = useState(0);

@@ -11,8 +11,7 @@ import {
 import {
   adminCartsActions,
   selectAdminCarts,
-  selectAdminCartsStatus,
-  selectAdminCartsError
+  selectAdminCartsStatus
 } from "./cartSlice";
 
 /* --- HELPER FUNCTIONS --- */
@@ -46,7 +45,6 @@ const CartManagement: React.FC = () => {
   const dispatch = useDispatch();
   const carts = useSelector(selectAdminCarts);
   const status = useSelector(selectAdminCartsStatus);
-  const error = useSelector(selectAdminCartsError);
 
   useEffect(() => {
     dispatch(adminCartsActions.fetchCartsRequest({}));
