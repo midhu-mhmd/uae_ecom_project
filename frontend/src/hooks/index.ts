@@ -10,3 +10,6 @@ export const useAppDispatch = () => useDispatch<AppDispatch>();
  * ✅ Pre-typed selector hook for Redux
  */
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+
+export { useRequireAuth } from './useRequireAuth';
+

@@ -108,7 +108,7 @@ const OrderManagement: React.FC = () => {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
   const [transactionIdFilter, setTransactionIdFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(5);
   const debouncedSearch = useDebounce(searchTerm, 500);
 
   // Column visibility
@@ -260,7 +260,7 @@ const OrderManagement: React.FC = () => {
         <QuickStat
           label="Total Orders"
           value={`${totalCount}`}
-          sub={`₹${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+          sub={`AED ${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
           icon={<ShoppingBag size={16} className="text-[#A1A1AA]" />}
         />
         <QuickStat
@@ -549,7 +549,7 @@ const OrderManagement: React.FC = () => {
                   >
                     {isVisible("index") && (
                       <td className="px-5 py-4 text-xs font-mono text-[#A1A1AA] text-center">
-                        {(page - 1) * 10 + index + 1}
+                        {(page - 1) * limit + index + 1}
                       </td>
                     )}
 
@@ -584,7 +584,7 @@ const OrderManagement: React.FC = () => {
                     {isVisible("total") && (
                       <td className="px-5 py-4">
                         <span className="text-sm font-black">
-                          ₹{order.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          AED {order.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </span>
                       </td>
                     )}
@@ -878,12 +878,12 @@ const OrderDetailsPanel = ({
                       {/* Ensure productName and other fields prevent crash if missing properties on item */}
                       <p className="text-xs font-bold">{item.productName || "Unknown Product"}</p>
                       <p className="text-[10px] text-[#A1A1AA]">
-                        Qty: {item.quantity || 0} · ₹{(item.price || 0).toFixed(2)}/ea
+                        Qty: {item.quantity || 0} · AED {(item.price || 0).toFixed(2)}/ea
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-bold">₹{(item.subtotal || 0).toFixed(2)}</p>
+                    <p className="text-xs font-bold">AED {(item.subtotal || 0).toFixed(2)}</p>
                   </div>
                 </div>
               ))
@@ -896,7 +896,7 @@ const OrderDetailsPanel = ({
               <div className="flex justify-between items-center pt-1">
                 <span className="text-sm font-bold">Total Amount</span>
                 <span className="text-xl font-black text-emerald-600">
-                  ₹{(order.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  AED {(order.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

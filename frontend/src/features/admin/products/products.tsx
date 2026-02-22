@@ -109,6 +109,7 @@ const ProductManagement: React.FC = () => {
     const [ratingFilter, setRatingFilter] = useState("");
     const [deliveryTimeFilter, setDeliveryTimeFilter] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(5);
     const debouncedSearch = useDebounce(searchTerm, 500);
 
     // Column visibility
@@ -140,16 +141,18 @@ const ProductManagement: React.FC = () => {
 
     // Fetch when params change
     useEffect(() => {
+        const offset = (page - 1) * limit;
         dispatch(
             productsActions.fetchProductsRequest({
                 q: debouncedSearch || undefined,
                 status: statusFilter === "All" ? undefined : statusFilter,
                 category: categoryFilter || undefined,
                 page,
-                limit: 10,
+                limit,
+                offset,
             })
         );
-    }, [dispatch, debouncedSearch, statusFilter, categoryFilter, page]);
+    }, [dispatch, debouncedSearch, statusFilter, categoryFilter, page, limit]);
 
     const handleReset = () => {
         setSearchTerm("");
@@ -554,7 +557,7 @@ const ProductManagement: React.FC = () => {
                                     <tr key={p.id} className="group hover:bg-[#FBFBFA] transition-colors">
                                         {isVisible("index") && (
                                             <td className="px-6 py-4 text-xs font-mono text-[#A1A1AA] text-center">
-                                                {(page - 1) * 10 + index + 1}
+                                                {(page - 1) * limit + index + 1}
                                             </td>
                                         )}
 
@@ -602,10 +605,10 @@ const ProductManagement: React.FC = () => {
 
                                         {isVisible("price") && (
                                             <td className="px-6 py-4">
-                                                <p className="text-sm font-bold">₹{p.finalPrice.toLocaleString()}</p>
+                                                <p className="text-sm font-bold">AED {p.finalPrice.toLocaleString()}</p>
                                                 {p.discountPrice !== null && p.discountPrice < p.price && (
                                                     <p className="text-[10px] text-[#A1A1AA] line-through">
-                                                        ₹{p.price.toLocaleString()}
+                                                        AED {p.price.toLocaleString()}
                                                     </p>
                                                 )}
                                             </td>
@@ -671,7 +674,7 @@ const ProductManagement: React.FC = () => {
                                             <td className="px-6 py-4">
                                                 {p.discountPrice !== null ? (
                                                     <span className="text-xs font-bold text-emerald-600">
-                                                        ₹{p.discountPrice.toLocaleString()}
+                                                        AED {p.discountPrice.toLocaleString()}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] text-[#A1A1AA]">—</span>
@@ -728,8 +731,20 @@ const ProductManagement: React.FC = () => {
 
                 {/* --- PAGINATION CONTROLS --- */}
                 <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
-                    <div className="text-[11px] text-[#A1A1AA] font-medium">
-                        Showing {products.length} of {totalCount} products
+                    <div className="flex items-center gap-4">
+                        <div className="text-[11px] text-[#A1A1AA] font-medium">
+                            Showing {products.length} of {totalCount} products
+                        </div>
+                        <select
+                            value={limit}
+                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                            className="p-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-xs outline-none focus:border-[#D4D4D8]"
+                        >
+                            <option value={5}>5 / page</option>
+                            <option value={10}>10 / page</option>
+                            <option value={20}>20 / page</option>
+                            <option value={50}>50 / page</option>
+                        </select>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -742,7 +757,7 @@ const ProductManagement: React.FC = () => {
                         <span className="text-xs font-bold px-2">Page {page}</span>
                         <button
                             onClick={() => setPage((p) => p + 1)}
-                            disabled={products.length < 10 || status === "loading"}
+                            disabled={products.length < limit || status === "loading"}
                             className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <ChevronRight size={14} />
@@ -834,7 +849,7 @@ const ProductDetailPanel = ({
                                     <IndianRupee size={12} />
                                     <span className="text-[9px] font-bold uppercase tracking-widest">MRP</span>
                                 </div>
-                                <p className="text-lg font-bold">₹{product.price.toLocaleString()}</p>
+                                <p className="text-lg font-bold">AED {product.price.toLocaleString()}</p>
                             </div>
                             <div className="p-4 border border-[#EEEEEE] rounded-xl bg-[#FDFDFD]">
                                 <div className="flex items-center gap-1.5 text-[#A1A1AA] mb-1">
@@ -842,7 +857,7 @@ const ProductDetailPanel = ({
                                     <span className="text-[9px] font-bold uppercase tracking-widest">Discount</span>
                                 </div>
                                 <p className="text-lg font-bold text-[#71717A]">
-                                    {product.discountPrice !== null ? `₹${product.discountPrice.toLocaleString()}` : "—"}
+                                    {product.discountPrice !== null ? `AED ${product.discountPrice.toLocaleString()}` : "—"}
                                 </p>
                             </div>
                             <div className="p-4 border border-[#EEEEEE] rounded-xl bg-[#FDFDFD]">
@@ -850,7 +865,7 @@ const ProductDetailPanel = ({
                                     <IndianRupee size={12} />
                                     <span className="text-[9px] font-bold uppercase tracking-widest">Final</span>
                                 </div>
-                                <p className="text-lg font-bold text-emerald-600">₹{product.finalPrice.toLocaleString()}</p>
+                                <p className="text-lg font-bold text-emerald-600">AED {product.finalPrice.toLocaleString()}</p>
                             </div>
                         </div>
                     </div>

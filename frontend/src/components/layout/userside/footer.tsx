@@ -1,5 +1,4 @@
 import React from "react";
-import { motion } from "framer-motion";
 import {
     Fish,
     Phone,
@@ -65,72 +64,13 @@ const Footer: React.FC = () => {
     const year = new Date().getFullYear();
 
     return (
-        <footer className="relative bg-red-950 text-red-200/80">
-            {/* ─── Animated Realistic Waves ─── */}
-            <div className="absolute top-0 left-0 right-0 w-full overflow-hidden leading-[0] transform -translate-y-[99%] z-10">
-                <div className="relative w-full h-[60px] sm:h-[100px]">
-                    {/* Wave 1 (Back/Slow) */}
-                    <motion.div
-                        className="absolute bottom-0 left-0 w-[200%] h-full flex"
-                        animate={{ x: ["0%", "-50%"] }}
-                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    >
-                        <svg className="w-1/2 h-full text-red-900/30 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <defs>
-                                <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
-                            </defs>
-                            <use xlinkHref="#gentle-wave" x="48" y="0" />
-                            <use xlinkHref="#gentle-wave" x="48" y="3" /> {/* Layering for thickness */}
-                        </svg>
-                        <svg className="w-1/2 h-full text-red-900/30 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <use xlinkHref="#gentle-wave" x="48" y="0" />
-                            <use xlinkHref="#gentle-wave" x="48" y="3" />
-                        </svg>
-                    </motion.div>
-
-                    {/* Wave 2 (Middle/Medium) */}
-                    <motion.div
-                        className="absolute bottom-0 left-0 w-[200%] h-full flex"
-                        animate={{ x: ["-25%", "-75%"] }} // Start offset
-                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    >
-                        <svg className="w-1/2 h-full text-red-800/40 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <use xlinkHref="#gentle-wave" x="48" y="3" />
-                        </svg>
-                        <svg className="w-1/2 h-full text-red-800/40 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <use xlinkHref="#gentle-wave" x="48" y="3" />
-                        </svg>
-                    </motion.div>
-
-                    {/* Wave 3 (Front/Fast) */}
-                    <motion.div
-                        className="absolute bottom-0 left-0 w-[200%] h-full flex"
-                        animate={{ x: ["0%", "-50%"] }}
-                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                    >
-                        <svg className="w-1/2 h-full text-red-950 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <use xlinkHref="#gentle-wave" x="48" y="5" />
-                            <use xlinkHref="#gentle-wave" x="48" y="7" />
-                        </svg>
-                        <svg className="w-1/2 h-full text-red-950 fill-current" viewBox="0 24 150 28" preserveAspectRatio="none">
-                            <use xlinkHref="#gentle-wave" x="48" y="5" />
-                            <use xlinkHref="#gentle-wave" x="48" y="7" />
-                        </svg>
-                    </motion.div>
-                </div>
-            </div>
-
-            {/* Divider Line (Optional, or removed if wave covers it) */}
-            {/* <div className="absolute top-8 sm:top-12 left-0 right-0 h-px bg-red-900/50" /> */}
-
+        <footer className="bg-red-950 text-red-200/80">
             {/* Newsletter Banner */}
-            <div className="relative px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+            <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-6">
                 <div className="mx-auto max-w-7xl">
-                    <div className="relative bg-red-900 border border-red-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden">
-                        {/* Glow */}
-                        <div className="absolute -top-16 -right-16 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl" />
+                    <div className="bg-red-900 border border-red-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
 
-                        <div className="relative">
+                        <div>
                             <h3 className="text-lg font-bold text-white mb-1">
                                 🦐 Get Fresh Deals in Your Inbox
                             </h3>
@@ -164,7 +104,7 @@ const Footer: React.FC = () => {
                                     <Fish size={18} className="text-red-900" />
                                 </div>
                                 <span className="text-lg font-extrabold text-white tracking-tight">
-                                    FreshCatch
+                                    FreshMa
                                 </span>
                             </div>
                             <p className="text-xs text-red-200/60 leading-relaxed mb-5 max-w-xs">
@@ -179,11 +119,11 @@ const Footer: React.FC = () => {
                                 </a>
                                 <a href="mailto:hello@freshcatch.in" className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <Mail size={13} className="text-red-300" />
-                                    hello@freshcatch.in
+                                    hello@freshma.in
                                 </a>
                                 <div className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <MapPin size={13} className="text-red-300 shrink-0" />
-                                    Mumbai, Maharashtra
+                                    kerala , india
                                 </div>
                                 <div className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <Clock size={13} className="text-red-300" />

@@ -1,13 +1,15 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import {
     removeFromCart,
     updateQuantity,
     selectCartItems,
-    selectCartTotal
+    selectCartTotal,
+    selectCartLoading,
+    selectCartError,
 } from '../shop/cart/cartSlice';
 
 const CartPage: React.FC = () => {
@@ -15,8 +17,36 @@ const CartPage: React.FC = () => {
     const dispatch = useAppDispatch();
     const cartItems = useAppSelector(selectCartItems);
     const cartTotal = useAppSelector(selectCartTotal);
+    const isLoading = useAppSelector(selectCartLoading);
+    const cartError = useAppSelector(selectCartError);
 
-    const shippingCost = cartTotal > 500 ? 0 : 50; // Free shipping over ₹500
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
+                <Loader2 size={40} className="text-red-900 animate-spin" />
+                <p className="text-stone-500 font-medium">Loading your cart…</p>
+            </div>
+        );
+    }
+
+    // Error state
+    if (cartError) {
+        return (
+            <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
+                <ShoppingBag size={40} className="text-stone-300" />
+                <p className="text-red-500 font-bold">{cartError}</p>
+                <button
+                    onClick={() => navigate('/products')}
+                    className="px-6 py-2 bg-red-900 text-white rounded-full font-bold hover:bg-red-800 transition-colors"
+                >
+                    Continue Shopping
+                </button>
+            </div>
+        );
+    }
+
+    const shippingCost = cartTotal > 500 ? 0 : 50; // Free shipping over AED 500
     const finalTotal = cartTotal + shippingCost;
 
     if (cartItems.length === 0) {
@@ -119,11 +149,11 @@ const CartPage: React.FC = () => {
                                         <div className="text-right">
                                             {item.discountPrice ? (
                                                 <div className="flex flex-col items-end leading-none">
-                                                    <span className="text-[10px] text-stone-400 line-through">₹{item.price * item.quantity}</span>
-                                                    <span className="text-lg font-black text-red-900">₹{item.finalPrice * item.quantity}</span>
+                                                    <span className="text-[10px] text-stone-400 line-through">AED {item.price * item.quantity}</span>
+                                                    <span className="text-lg font-black text-red-900">AED {item.finalPrice * item.quantity}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-lg font-black text-red-900">₹{item.price * item.quantity}</span>
+                                                <span className="text-lg font-black text-red-900">AED {item.price * item.quantity}</span>
                                             )}
                                         </div>
                                     </div>
@@ -141,22 +171,22 @@ const CartPage: React.FC = () => {
                         <div className="space-y-3 pb-6 border-b border-stone-100">
                             <div className="flex justify-between text-sm text-stone-500">
                                 <span>Subtotal</span>
-                                <span className="font-bold text-stone-900">₹{cartTotal}</span>
+                                <span className="font-bold text-stone-900">AED {cartTotal}</span>
                             </div>
                             <div className="flex justify-between text-sm text-stone-500">
                                 <span>Shipping</span>
-                                <span className="font-bold text-green-600">{shippingCost === 0 ? "Free" : `₹${shippingCost}`}</span>
+                                <span className="font-bold text-green-600">{shippingCost === 0 ? "Free" : `AED ${shippingCost}`}</span>
                             </div>
                             {shippingCost > 0 && (
                                 <p className="text-xs text-stone-400 italic">
-                                    Add ₹{500 - cartTotal} more for free shipping
+                                    Add AED {500 - cartTotal} more for free shipping
                                 </p>
                             )}
                         </div>
 
                         <div className="flex justify-between items-end">
                             <span className="text-sm font-bold text-stone-900">Total</span>
-                            <span className="text-2xl font-black text-red-900">₹{finalTotal}</span>
+                            <span className="text-2xl font-black text-red-900">AED {finalTotal}</span>
                         </div>
 
                         <button

@@ -21,6 +21,7 @@ export type ReviewsQuery = {
     is_approved?: boolean;
     page?: number;
     limit?: number;
+    offset?: number;
 };
 
 export const reviewsApi = {

@@ -57,6 +57,7 @@ export interface Customer {
 export type CustomersQuery = {
   q?: string;
   status?: string;
+  role?: string;
   page?: number;
   limit?: number;
   offset?: number;

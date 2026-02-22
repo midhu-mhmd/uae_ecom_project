@@ -106,14 +106,22 @@ const QuickStat = memo(function QuickStat({
   value,
   sub,
   icon,
+  onClick,
+  active = false,
 }: {
   label: string;
   value: string;
   sub: string;
   icon?: React.ReactNode;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="p-5 bg-white border border-[#EEEEEE] rounded-2xl shadow-sm hover:border-[#D4D4D8] transition-colors">
+    <div
+      onClick={onClick}
+      className={`p-5 bg-white border rounded-2xl shadow-sm transition-all ${onClick ? "cursor-pointer hover:shadow-md" : ""
+        } ${active ? "border-black ring-1 ring-black/5" : "border-[#EEEEEE] hover:border-[#D4D4D8]"}`}
+    >
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">{label}</p>
         {icon}
@@ -200,8 +208,8 @@ const CustomerRow = memo(function CustomerRow({
         <td className="px-5 py-4">
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase border ${customer.status === "Active"
-                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                : "bg-rose-50 text-rose-600 border-rose-100"
+              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+              : "bg-rose-50 text-rose-600 border-rose-100"
               }`}
           >
             {customer.status}
@@ -213,8 +221,8 @@ const CustomerRow = memo(function CustomerRow({
         <td className="px-5 py-4">
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase border ${customer.role === "admin"
-                ? "bg-blue-50 text-blue-600 border-blue-100"
-                : "bg-gray-50 text-gray-600 border-gray-200"
+              ? "bg-blue-50 text-blue-600 border-blue-100"
+              : "bg-gray-50 text-gray-600 border-gray-200"
               }`}
           >
             {customer.role}
@@ -370,8 +378,8 @@ const CustomerDetailPanel = memo(function CustomerDetailPanel({
               <div className="mt-1">
                 <span
                   className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase border ${customer.status === "Active"
-                      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                      : "bg-rose-50 text-rose-600 border-rose-100"
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    : "bg-rose-50 text-rose-600 border-rose-100"
                     }`}
                 >
                   <span
@@ -539,7 +547,7 @@ const CustomerManagement: React.FC = () => {
   const [verifiedFilter, setVerifiedFilter] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(5);
 
   // smoother typing
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -580,12 +588,13 @@ const CustomerManagement: React.FC = () => {
       customersActions.fetchCustomersRequest({
         q: debouncedSearch || undefined,
         status: statusFilter === "All" ? undefined : statusFilter,
+        role: roleFilter === "All" ? undefined : roleFilter,
         page,
         limit,
         offset,
       })
     );
-  }, [dispatch, debouncedSearch, statusFilter, page, limit]);
+  }, [dispatch, debouncedSearch, statusFilter, roleFilter, page, limit]);
 
   const handleReset = useCallback(() => {
     setSearchTerm("");
@@ -600,7 +609,8 @@ const CustomerManagement: React.FC = () => {
   const { filteredCustomers, stats } = useMemo(() => {
     let result = customers;
 
-    if (roleFilter !== "All") result = result.filter((c) => c.role === roleFilter);
+    // Redundant now that it is server-side triggered via fetch useEffect
+    // if (roleFilter !== "All") result = result.filter((c) => c.role === roleFilter);
 
     if (verifiedFilter === "email") result = result.filter((c) => c.isEmailVerified);
     else if (verifiedFilter === "phone") result = result.filter((c) => c.isPhoneVerified);
@@ -623,7 +633,7 @@ const CustomerManagement: React.FC = () => {
     }
 
     return { filteredCustomers: result, stats: { active, blocked, admins } };
-  }, [customers, roleFilter, verifiedFilter, phoneFilter]);
+  }, [customers, verifiedFilter, phoneFilter]);
 
   const selectedCustomer = useMemo(
     () => filteredCustomers.find((c) => c.id === selectedCustomerId) ?? null,
@@ -726,24 +736,40 @@ const CustomerManagement: React.FC = () => {
           value={`${totalCount}`}
           sub="All registered"
           icon={<User size={16} className="text-[#A1A1AA]" />}
+          onClick={handleReset}
         />
         <QuickStat
           label="Active"
           value={`${stats.active}`}
           sub="Active accounts"
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
+          onClick={() => {
+            setStatusFilter("Active");
+            setPage(1);
+          }}
+          active={statusFilter === "Active"}
         />
         <QuickStat
           label="Blocked"
           value={`${stats.blocked}`}
           sub="Suspended"
           icon={<XCircle size={16} className="text-rose-500" />}
+          onClick={() => {
+            setStatusFilter("Blocked");
+            setPage(1);
+          }}
+          active={statusFilter === "Blocked"}
         />
         <QuickStat
           label="Admins"
           value={`${stats.admins}`}
           sub="Admin role"
           icon={<Shield size={16} className="text-blue-500" />}
+          onClick={() => {
+            setRoleFilter("admin");
+            setPage(1);
+          }}
+          active={roleFilter === "admin"}
         />
       </div>
 
@@ -756,8 +782,8 @@ const CustomerManagement: React.FC = () => {
             <button
               onClick={toggleRoleQuick}
               className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${roleFilter === "admin"
-                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                  : "bg-black text-white border-black hover:bg-gray-800"
+                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                : "bg-black text-white border-black hover:bg-gray-800"
                 }`}
               title="Quick toggle: Admins ↔ Users (All -> Admins)"
             >

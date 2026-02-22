@@ -9,7 +9,7 @@ import {
   Check,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import type { AuthMethod } from "../../types/types";
 import { requestOtp, verifyOtp, setMethod, setStep } from "../auth/authSlice"; // adjust path
@@ -17,6 +17,8 @@ import { requestOtp, verifyOtp, setMethod, setStep } from "../auth/authSlice"; /
 const Login: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectPath = (location.state as any)?.redirect || null;
 
   const { otp_type, step, isLoading, error, value, isAuthenticated, user } = useSelector(
     (s: any) => s.auth
@@ -36,8 +38,14 @@ const Login: React.FC = () => {
     if (!isAuthenticated || !user) return;
 
     const isAdmin = user.role === "admin" || user.is_admin === true;
-    navigate(isAdmin ? "/admin/dashboard" : "/", { replace: true });
-  }, [isAuthenticated, user, navigate]);
+    if (isAdmin) {
+      navigate("/admin/dashboard", { replace: true });
+    } else if (redirectPath) {
+      navigate(redirectPath, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, redirectPath]);
 
   const isPhoneValid = useMemo(() => {
     const digits = localValue.replace(/\D/g, "");

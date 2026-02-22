@@ -118,7 +118,7 @@ const AddProduct: React.FC = () => {
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase text-[#A1A1AA]">Price</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#A1A1AA]">₹</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#A1A1AA]">AED</span>
                                 <input
                                     type="number" step="0.01"
                                     {...register("price", { required: "Price is required" })}
@@ -132,7 +132,7 @@ const AddProduct: React.FC = () => {
                         <div className="space-y-2">
                             <label className="text-xs font-bold uppercase text-[#A1A1AA]">Discount Price (Opt)</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#A1A1AA]">₹</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#A1A1AA]">AED</span>
                                 <input
                                     type="number" step="0.01"
                                     {...register("discount_price")}
