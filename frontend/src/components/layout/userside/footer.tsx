@@ -131,7 +131,7 @@ const Footer: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Socials */}
+                          {/* Socials */}
                             <div className="flex items-center gap-2">
                                 {socials.map((s) => (
                                     <a
