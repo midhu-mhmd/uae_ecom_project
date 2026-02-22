@@ -43,16 +43,21 @@ export const AppRoutes: React.FC = () => {
     <Routes>
       {/* --- USER ROUTES (with Navbar) --- */}
       <Route element={<UserLayout />}>
+        {/* Public user routes */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<UserProductsPage />} />
-        <Route path="/orders" element={<OrderPage />} />
-        {/* <Route path="/wishlist" element={<WishlistPage />} /> */}
         <Route path="/products/:id" element={<ProductProfile />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/notifications" element={<NotificationPage />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+
+        {/* Protected user routes — require login */}
+        <Route element={<PrivateRoute />}>
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrderPage />} />
+          <Route path="/notifications" element={<NotificationPage />} />
+          {/* <Route path="/wishlist" element={<WishlistPage />} /> */}
+        </Route>
       </Route>
 
       {/* --- ADMIN ROUTES (Nested) --- */}

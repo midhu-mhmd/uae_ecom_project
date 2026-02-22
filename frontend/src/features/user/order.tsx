@@ -190,7 +190,7 @@ const OrderPage: React.FC = () => {
                                     <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
                                         <div>
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Total Amount</p>
-                                            <p className="text-lg font-black text-slate-900">₹{order.total_amount}</p>
+                                            <p className="text-lg font-black text-slate-900">AED {order.total_amount}</p>
                                         </div>
 
                                         <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-50 text-slate-600 text-xs font-bold hover:bg-rose-50 hover:text-rose-600 transition-colors">

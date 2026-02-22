@@ -2,18 +2,21 @@ import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { productsApi, type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingCart, Star, Filter, ArrowRight } from "lucide-react";
-import { useAppDispatch } from "../../hooks";
+import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap } from "lucide-react";
+import { useAppDispatch, useRequireAuth } from "../../hooks";
 import { addToCart } from "../shop/cart/cartSlice";
+import { useNavigate } from "react-router-dom";
 import ShrimpLoader from "../../components/loader/preloader";
 
 // --- Extracted Memoized Product Card ---
 const ProductCard = memo(({
     product,
-    onAddToCart
+    onAddToCart,
+    onBuyNow
 }: {
     product: ProductDto;
     onAddToCart: (e: React.MouseEvent, p: ProductDto) => void;
+    onBuyNow: (e: React.MouseEvent, p: ProductDto) => void;
 }) => {
     return (
         <motion.div
@@ -50,15 +53,18 @@ const ProductCard = memo(({
                         )}
                     </div>
 
-                    {/* Quick Add Button */}
-                    <button
-                        onClick={(e) => onAddToCart(e, product)}
-                        disabled={!product.is_available}
-                        className="absolute bottom-3 right-3 w-10 h-10 bg-white shadow-xl text-slate-900 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-all duration-300 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 z-20 disabled:opacity-50"
-                        title="Add to Cart"
-                    >
-                        <ShoppingCart size={18} />
-                    </button>
+                    {/* Quick Action Buttons */}
+                    <div className="absolute bottom-3 right-3 flex flex-col gap-2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-20">
+                        <button
+                            onClick={(e) => onAddToCart(e, product)}
+                            disabled={!product.is_available}
+                            className="w-10 h-10 bg-white shadow-xl text-slate-900 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-all duration-300 disabled:opacity-50"
+                            title="Add to Cart"
+                        >
+                            <ShoppingCart size={18} />
+                        </button>
+
+                    </div>
 
                     {/* Out of Stock Overlay */}
                     {!product.is_available && (
@@ -87,24 +93,36 @@ const ProductCard = memo(({
                     </h3>
                     <p className="text-xs text-slate-500 mb-4 line-clamp-1">{product.description || "Fresh and premium quality."}</p>
 
-                    <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between">
-                        <div className="flex flex-col">
-                            {product.discount_price ? (
-                                <>
-                                    <span className="text-[10px] text-slate-400 line-through font-medium">₹{product.price}</span>
-                                    <span className="text-lg font-black text-slate-900">₹{product.discount_price}</span>
-                                </>
-                            ) : (
-                                <span className="text-lg font-black text-slate-900">₹{product.price}</span>
-                            )}
-                        </div>
+                    <div className="mt-auto pt-3 border-t border-slate-50 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                {product.discount_price ? (
+                                    <>
+                                        <span className="text-[10px] text-slate-400 line-through font-medium">AED {product.price}</span>
+                                        <span className="text-lg font-black text-slate-900">AED {product.discount_price}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-lg font-black text-slate-900">AED {product.price}</span>
+                                )}
+                            </div>
 
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 group/btn">
-                            <span className="hidden sm:inline-block opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-slate-500">View</span>
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
-                                <ArrowRight size={14} />
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-900 group/btn">
+                                <span className="hidden sm:inline-block opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-slate-500">View</span>
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
+                                    <ArrowRight size={14} />
+                                </div>
                             </div>
                         </div>
+
+                        {/* Buy Now Button */}
+                        <button
+                            onClick={(e) => onBuyNow(e, product)}
+                            disabled={!product.is_available}
+                            className="w-full py-2.5 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Zap size={14} />
+                            Buy Now
+                        </button>
                     </div>
                 </div>
             </Link>
@@ -114,6 +132,8 @@ const ProductCard = memo(({
 
 const UserProductsPage: React.FC = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const requireAuth = useRequireAuth();
     const [products, setProducts] = useState<ProductDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -171,22 +191,48 @@ const UserProductsPage: React.FC = () => {
         e.preventDefault();
         e.stopPropagation();
 
-        const price = parseFloat(product.price);
-        const discountPrice = product.discount_price ? parseFloat(product.discount_price) : undefined;
-        const finalPrice = discountPrice || price;
+        requireAuth(() => {
+            const price = parseFloat(product.price);
+            const discountPrice = product.discount_price ? parseFloat(product.discount_price) : undefined;
+            const finalPrice = discountPrice || price;
 
-        dispatch(addToCart({
-            id: product.id,
-            name: product.name,
-            price: price,
-            discountPrice: discountPrice,
-            finalPrice: finalPrice,
-            image: product.image,
-            sku: product.sku,
-            stock: product.stock,
-            quantity: 1
-        }));
-    }, [dispatch]);
+            dispatch(addToCart({
+                id: product.id,
+                name: product.name,
+                price: price,
+                discountPrice: discountPrice,
+                finalPrice: finalPrice,
+                image: product.image,
+                sku: product.sku,
+                stock: product.stock,
+                quantity: 1
+            }));
+        })();
+    }, [dispatch, requireAuth]);
+
+    const handleBuyNow = useCallback((e: React.MouseEvent, product: ProductDto) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        requireAuth(() => {
+            const price = parseFloat(product.price);
+            const discountPrice = product.discount_price ? parseFloat(product.discount_price) : undefined;
+            const finalPrice = discountPrice || price;
+
+            dispatch(addToCart({
+                id: product.id,
+                name: product.name,
+                price: price,
+                discountPrice: discountPrice,
+                finalPrice: finalPrice,
+                image: product.image,
+                sku: product.sku,
+                stock: product.stock,
+                quantity: 1
+            }));
+            navigate('/checkout');
+        })();
+    }, [dispatch, navigate, requireAuth]);
 
     // Slice products for "Load More" (Simulation of virtualization benefits)
     const visibleProducts = useMemo(() => {
@@ -255,6 +301,7 @@ const UserProductsPage: React.FC = () => {
                                         key={product.id}
                                         product={product}
                                         onAddToCart={handleAddToCart}
+                                        onBuyNow={handleBuyNow}
                                     />
                                 ))}
                             </AnimatePresence>

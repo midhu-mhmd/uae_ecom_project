@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Shield,
   ArrowRight,
@@ -7,6 +7,8 @@ import {
   Phone,
   Mail,
   RefreshCcw,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +28,30 @@ const RegisterWithOtp: React.FC = () => {
   const [localValue, setLocalValue] = useState(value || "");
   const [otp, setOtp] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [countryCode, setCountryCode] = useState("+91");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const countries = [
+    { code: "+91", flag: "🇮🇳", name: "India" },
+    { code: "+971", flag: "🇦🇪", name: "UAE" },
+    { code: "+86", flag: "🇨🇳", name: "China" },
+  ];
+
+  const selectedCountry = countries.find((c) => c.code === countryCode) || countries[0];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Keep input synced with store value (when saga stores it)
   useEffect(() => {
@@ -49,9 +75,15 @@ const RegisterWithOtp: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(localValue.trim());
   }, [localValue]);
 
+  const isNameValid = useMemo(() => {
+    const trimmed = name.trim();
+    return trimmed.length >= 2 && /^[a-zA-Z\s]+$/.test(trimmed);
+  }, [name]);
+
   const canSendOtp =
     !isLoading &&
     agreeTerms &&
+    isNameValid &&
     (otp_type === "phone" ? isPhoneValid : isEmailValid);
 
   const canVerifyOtp = !isLoading && otp.trim().length === 6;
@@ -60,6 +92,9 @@ const RegisterWithOtp: React.FC = () => {
     setOtp("");
     setAgreeTerms(false);
     setLocalValue("");
+    setName("");
+    setNameTouched(false);
+    setCountryCode("+91");
     dispatch(setMethod(m));
   };
 
@@ -67,10 +102,11 @@ const RegisterWithOtp: React.FC = () => {
     e.preventDefault();
     if (!canSendOtp) return;
 
+    const phoneWithCode = otp_type === "phone" ? `${countryCode}${localValue.trim().replace(/^0+/, '')}` : undefined;
     dispatch(
       requestOtp({
         otp_type: otp_type,
-        phone_number: otp_type === "phone" ? localValue.trim() : undefined,
+        phone_number: phoneWithCode,
         email: otp_type === "email" ? localValue.trim() : undefined,
       })
     );
@@ -86,6 +122,7 @@ const RegisterWithOtp: React.FC = () => {
         phone_number: otp_type === "phone" ? (value || localValue.trim()) : undefined,
         email: otp_type === "email" ? (value || localValue.trim()) : undefined,
         otp_code: otp.trim(),
+        name: name.trim(),
       })
     );
   };
@@ -154,18 +191,90 @@ const RegisterWithOtp: React.FC = () => {
             {/* Step: Input */}
             {step === "input" && (
               <form onSubmit={onSendOtp} className="mt-6 space-y-5">
+                <Field label="Full Name">
+                  <div className="relative">
+                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setNameTouched(true)}
+                      placeholder="John Doe"
+                      className={`w-full h-11 rounded-xl border bg-white pl-9 pr-3 text-sm outline-none transition
+                                 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10 placeholder:text-gray-300
+                                 ${nameTouched && !isNameValid ? "border-red-400" : "border-gray-200"}`}
+                    />
+                  </div>
+                  {nameTouched && !isNameValid && (
+                    <p className="text-[11px] text-red-500 mt-1">
+                      {name.trim().length < 2
+                        ? "Name must be at least 2 characters."
+                        : "Name can only contain letters and spaces."}
+                    </p>
+                  )}
+                </Field>
+
                 <Field label={otp_type === "phone" ? "Phone number" : "Email"}>
-                  <input
-                    type={otp_type === "phone" ? "tel" : "email"}
-                    required
-                    value={localValue}
-                    onChange={(e) => setLocalValue(e.target.value)}
-                    placeholder={
-                      otp_type === "phone" ? "+91 XXXXX XXXXX" : "name@domain.com"
-                    }
-                    className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition
-                               focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10 placeholder:text-gray-300"
-                  />
+                  {otp_type === "phone" ? (
+                    <div className="flex gap-2">
+                      {/* Flag Dropdown */}
+                      <div className="relative" ref={dropdownRef}>
+                        <button
+                          type="button"
+                          onClick={() => setDropdownOpen(!dropdownOpen)}
+                          className="h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition
+                                     focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10 cursor-pointer
+                                     flex items-center gap-2 hover:bg-gray-50"
+                        >
+                          <span className="text-xl leading-none">{selectedCountry.flag}</span>
+                          <span className="text-sm font-medium text-gray-700">{selectedCountry.code}</span>
+                          <ChevronDown size={14} className={`text-gray-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {dropdownOpen && (
+                          <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                            {countries.map((c) => (
+                              <button
+                                key={c.code}
+                                type="button"
+                                onClick={() => {
+                                  setCountryCode(c.code);
+                                  setDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-rose-50 transition-colors
+                                           ${c.code === countryCode ? "bg-rose-50 text-rose-600" : "text-gray-700"}`}
+                              >
+                                <span className="text-xl leading-none">{c.flag}</span>
+                                <span className="font-medium">{c.name}</span>
+                                <span className="ml-auto text-gray-400 text-xs">{c.code}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <input
+                        type="tel"
+                        required
+                        value={localValue}
+                        onChange={(e) => setLocalValue(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="XXXXX XXXXX"
+                        className="flex-1 h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition
+                                   focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10 placeholder:text-gray-300"
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      type="email"
+                      required
+                      value={localValue}
+                      onChange={(e) => setLocalValue(e.target.value)}
+                      placeholder="name@domain.com"
+                      className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition
+                                 focus:border-rose-600 focus:ring-4 focus:ring-rose-500/10 placeholder:text-gray-300"
+                    />
+                  )}
                 </Field>
 
                 {/* Terms */}

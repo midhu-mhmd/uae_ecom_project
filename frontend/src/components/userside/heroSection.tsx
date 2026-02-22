@@ -12,8 +12,8 @@ const banners = [
     highlight: 'Cleaned & Deveined',
     cta: 'Order Prawns',
     img: 'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?q=80&w=1200&auto=format&fit=crop',
-    price: '₹299',
-    oldPrice: '₹429',
+    price: 'AED 299',
+    oldPrice: 'AED 429',
     accent: 'text-yellow-400',
   },
   {
@@ -24,8 +24,8 @@ const banners = [
     highlight: 'Live Catch',
     cta: 'Buy Crabs',
     img: 'https://images.unsplash.com/photo-1550747528-cdb45925b3f7?q=80&w=1200&auto=format&fit=crop',
-    price: '₹369',
-    oldPrice: '₹459',
+    price: 'AED 369',
+    oldPrice: 'AED 459',
     accent: 'text-red-500',
   },
   {
@@ -36,8 +36,8 @@ const banners = [
     highlight: 'Antibiotic Free',
     cta: 'Get Shrimps',
     img: 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?q=80&w=1200&auto=format&fit=crop',
-    price: '₹499',
-    oldPrice: '₹699',
+    price: 'AED 499',
+    oldPrice: 'AED 699',
     accent: 'text-orange-400',
   },
   {
@@ -48,8 +48,8 @@ const banners = [
     highlight: 'Premium Choice',
     cta: 'Shop Lobsters',
     img: 'https://images.unsplash.com/photo-1559737558-2f5a35f4523b?q=80&w=1200&auto=format&fit=crop',
-    price: '₹1,059',
-    oldPrice: '₹1,720',
+    price: 'AED 1,059',
+    oldPrice: 'AED 1,720',
     accent: 'text-red-600',
   },
 ];

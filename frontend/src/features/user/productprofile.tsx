@@ -2,14 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { productsApi, type ProductDto, type ProductImageDto } from "../admin/products/productApi";
 import { motion } from "framer-motion";
-import { Star, ShoppingCart, Truck, ShieldCheck, ArrowLeft, Minus, Plus, Heart } from "lucide-react";
-import { useAppDispatch } from "../../hooks";
+import { Star, ShoppingCart, Truck, ShieldCheck, ArrowLeft, Minus, Plus, Heart, Zap } from "lucide-react";
+import { useAppDispatch, useRequireAuth } from "../../hooks";
 import { addToCart } from "../shop/cart/cartSlice";
 
 const ProductProfile: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
+    const requireAuth = useRequireAuth();
     const [product, setProduct] = useState<ProductDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -205,11 +206,11 @@ const ProductProfile: React.FC = () => {
                             <div className="flex items-baseline gap-3">
                                 {product.discount_price ? (
                                     <>
-                                        <span className="text-4xl font-black text-stone-900">₹{product.discount_price}</span>
-                                        <span className="text-xl text-stone-400 line-through font-bold">₹{product.price}</span>
+                                        <span className="text-4xl font-black text-stone-900">AED {product.discount_price}</span>
+                                        <span className="text-xl text-stone-400 line-through font-bold">AED {product.price}</span>
                                     </>
                                 ) : (
-                                    <span className="text-4xl font-black text-stone-900">₹{product.price}</span>
+                                    <span className="text-4xl font-black text-stone-900">AED {product.price}</span>
                                 )}
                             </div>
                         </div>
@@ -235,30 +236,58 @@ const ProductProfile: React.FC = () => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                         <button
                             onClick={() => {
-                                if (product) {
-                                    dispatch(addToCart({
-                                        id: product.id,
-                                        name: product.name,
-                                        price: parseFloat(product.price),
-                                        discountPrice: product.discount_price ? parseFloat(product.discount_price) : undefined,
-                                        finalPrice: product.discount_price ? parseFloat(product.discount_price) : parseFloat(product.price),
-                                        image: product.image,
-                                        quantity: quantity,
-                                        stock: product.stock,
-                                        sku: product.sku,
-                                        category: product.category_name
-                                    }));
-                                    navigate('/cart');
-                                }
+                                requireAuth(() => {
+                                    if (product) {
+                                        dispatch(addToCart({
+                                            id: product.id,
+                                            name: product.name,
+                                            price: parseFloat(product.price),
+                                            discountPrice: product.discount_price ? parseFloat(product.discount_price) : undefined,
+                                            finalPrice: product.discount_price ? parseFloat(product.discount_price) : parseFloat(product.price),
+                                            image: product.image,
+                                            quantity: quantity,
+                                            stock: product.stock,
+                                            sku: product.sku,
+                                            category: product.category_name
+                                        }));
+                                        navigate('/cart');
+                                    }
+                                })();
                             }}
                             disabled={!product.is_available}
-                            className="flex-1 py-4 bg-red-900 text-white text-lg font-black rounded-2xl hover:bg-red-700 shadow-xl shadow-red-900/10 hover:shadow-red-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
+                            className="flex-1 py-4 bg-stone-900 text-white text-base font-black rounded-2xl hover:bg-stone-800 shadow-xl shadow-stone-900/10 hover:shadow-stone-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
                         >
-                            <ShoppingCart size={24} />
+                            <ShoppingCart size={22} />
                             {product.is_available ? "Add to Cart" : "Out of Stock"}
+                        </button>
+                        <button
+                            onClick={() => {
+                                requireAuth(() => {
+                                    if (product) {
+                                        dispatch(addToCart({
+                                            id: product.id,
+                                            name: product.name,
+                                            price: parseFloat(product.price),
+                                            discountPrice: product.discount_price ? parseFloat(product.discount_price) : undefined,
+                                            finalPrice: product.discount_price ? parseFloat(product.discount_price) : parseFloat(product.price),
+                                            image: product.image,
+                                            quantity: quantity,
+                                            stock: product.stock,
+                                            sku: product.sku,
+                                            category: product.category_name
+                                        }));
+                                        navigate('/checkout');
+                                    }
+                                })();
+                            }}
+                            disabled={!product.is_available}
+                            className="flex-1 py-4 bg-red-600 text-white text-base font-black rounded-2xl hover:bg-red-700 shadow-xl shadow-red-600/20 hover:shadow-red-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
+                        >
+                            <Zap size={22} />
+                            Buy Now
                         </button>
                         <motion.button
                             onClick={toggleWishlist}
@@ -296,8 +325,8 @@ const ProductProfile: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 };
 

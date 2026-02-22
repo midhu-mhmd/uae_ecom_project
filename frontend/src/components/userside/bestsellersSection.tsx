@@ -9,6 +9,8 @@ import {
     Sparkles,
 } from "lucide-react";
 import { api } from "../../services/api";
+import { useAppDispatch, useRequireAuth } from "../../hooks";
+import { addToCart } from "../../features/shop/cart/cartSlice";
 
 /* ── Types ── */
 interface ProductImage {
@@ -34,171 +36,14 @@ interface Product {
     total_reviews: number;
 }
 
-/* ── Component ── */
-const BestsellersSection: React.FC = () => {
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(true);
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const res = await api.get<{ results: Product[]; count: number }>(
-                    "/products/products/",
-                    { params: { limit: 12 } }
-                );
-                setProducts(res.data.results || []);
-            } catch (err) {
-                console.error("Failed to fetch bestsellers:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchProducts();
-    }, []);
-
-    const updateScrollButtons = () => {
-        const el = scrollRef.current;
-        if (!el) return;
-        setCanScrollLeft(el.scrollLeft > 10);
-        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
-    };
-
-    useEffect(() => {
-        const el = scrollRef.current;
-        if (!el) return;
-        el.addEventListener("scroll", updateScrollButtons);
-        updateScrollButtons();
-        return () => el.removeEventListener("scroll", updateScrollButtons);
-    }, [products]);
-
-    const scroll = (dir: "left" | "right") => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const amount = dir === "left" ? -340 : 340;
-        el.scrollBy({ left: amount, behavior: "smooth" });
-    };
-
-    const getProductImage = (p: Product) => {
-        const featured = p.images?.find((img) => img.is_feature);
-        if (featured) return featured.image;
-        if (p.images?.[0]) return p.images[0].image;
-        return p.image || "";
-    };
-
-    const getDiscount = (p: Product) => {
-        const price = parseFloat(p.price);
-        const final = parseFloat(p.final_price);
-        if (!price || !final || price <= final) return 0;
-        return Math.round(((price - final) / price) * 100);
-    };
-
-    return (
-        <section className="relative bg-[#FAFAF8] py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-            {/* Decorative blob */}
-            <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 bg-red-50 rounded-full blur-3xl opacity-60" />
-            <div className="pointer-events-none absolute -bottom-32 -left-32 w-80 h-80 bg-yellow-50 rounded-full blur-3xl opacity-50" />
-
-            <div className="relative mx-auto max-w-7xl">
-                {/* Header */}
-                <div className="flex items-end justify-between mb-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full mb-3">
-                            <Flame size={14} className="text-red-500" />
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-red-600">
-                                Bestsellers
-                            </span>
-                        </div>
-                        <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 tracking-tight">
-                            Our Most <span className="text-red-600">Loved</span> Catches
-                        </h2>
-                        <p className="mt-2 text-zinc-500 text-sm max-w-md">
-                            Fresh picks your neighbors can't stop ordering. Straight from the ocean — cleaned, packed & ready to cook.
-                        </p>
-                    </div>
-
-                    {/* Nav arrows */}
-                    <div className="hidden sm:flex items-center gap-2">
-                        <button
-                            onClick={() => scroll("left")}
-                            disabled={!canScrollLeft}
-                            className="p-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <button
-                            onClick={() => scroll("right")}
-                            disabled={!canScrollRight}
-                            className="p-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Skeleton loader */}
-                {loading && (
-                    <div className="flex gap-5 overflow-hidden">
-                        {[...Array(4)].map((_, i) => (
-                            <div key={i} className="min-w-[280px] bg-white rounded-2xl border border-zinc-100 overflow-hidden animate-pulse">
-                                <div className="h-52 bg-zinc-100" />
-                                <div className="p-5 space-y-3">
-                                    <div className="h-3 w-16 bg-zinc-100 rounded" />
-                                    <div className="h-4 w-3/4 bg-zinc-100 rounded" />
-                                    <div className="h-3 w-1/2 bg-zinc-100 rounded" />
-                                    <div className="flex justify-between">
-                                        <div className="h-5 w-16 bg-zinc-100 rounded" />
-                                        <div className="h-8 w-8 bg-zinc-100 rounded-lg" />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Product Carousel */}
-                {!loading && products.length > 0 && (
-                    <div
-                        ref={scrollRef}
-                        className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
-                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    >
-                        {products.map((product, i) => (
-                            <ProductCard
-                                key={product.id}
-                                product={product}
-                                image={getProductImage(product)}
-                                discount={getDiscount(product)}
-                                index={i}
-                            />
-                        ))}
-                    </div>
-                )}
-
-                {/* Empty state */}
-                {!loading && products.length === 0 && (
-                    <div className="text-center py-16">
-                        <Sparkles className="mx-auto text-zinc-300 mb-4" size={48} />
-                        <p className="text-zinc-400 text-sm">No products available yet. Check back soon!</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Hide scrollbar CSS */}
-            <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
-        </section>
-    );
-};
-
 /* ── Product Card ── */
 const ProductCard: React.FC<{
     product: Product;
     image: string;
     discount: number;
     index: number;
-}> = ({ product, image, discount, index }) => {
+    onAddToCart: () => void;
+}> = ({ product, image, discount, index, onAddToCart }) => {
     const ref = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
     const [imgLoaded, setImgLoaded] = useState(false);
@@ -300,15 +145,16 @@ const ProductCard: React.FC<{
                 <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-2">
                         <span className="text-lg font-extrabold text-zinc-900">
-                            ₹{Math.round(finalPrice)}
+                            AED {Math.round(finalPrice)}
                         </span>
                         {discount > 0 && (
                             <span className="text-xs text-zinc-400 line-through">
-                                ₹{Math.round(price)}
+                                AED {Math.round(price)}
                             </span>
                         )}
                     </div>
                     <button
+                        onClick={() => onAddToCart()}
                         disabled={!product.is_available}
                         className="p-2.5 rounded-xl bg-red-900 text-white hover:bg-red-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg active:scale-95"
                     >
@@ -317,6 +163,185 @@ const ProductCard: React.FC<{
                 </div>
             </div>
         </div>
+    );
+};
+
+/* ── Main Section ── */
+const BestsellersSection: React.FC = () => {
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(true);
+    const dispatch = useAppDispatch();
+    const requireAuth = useRequireAuth();
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const res = await api.get<{ results: Product[]; count: number }>(
+                    "/products/products/",
+                    { params: { limit: 12 } }
+                );
+                setProducts(res.data.results || []);
+            } catch (err) {
+                console.error("Failed to fetch bestsellers:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProducts();
+    }, []);
+
+    const updateScrollButtons = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 10);
+        setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+    };
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.addEventListener("scroll", updateScrollButtons);
+        updateScrollButtons();
+        return () => el.removeEventListener("scroll", updateScrollButtons);
+    }, [products]);
+
+    const scroll = (dir: "left" | "right") => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollBy({ left: dir === "left" ? -340 : 340, behavior: "smooth" });
+    };
+
+    const getProductImage = (p: Product) => {
+        const featured = p.images?.find((img) => img.is_feature);
+        if (featured) return featured.image;
+        if (p.images?.[0]) return p.images[0].image;
+        return p.image || "";
+    };
+
+    const getDiscount = (p: Product) => {
+        const price = parseFloat(p.price);
+        const final = parseFloat(p.final_price);
+        if (!price || !final || price <= final) return 0;
+        return Math.round(((price - final) / price) * 100);
+    };
+
+    const handleAddToCart = (product: Product) => {
+        requireAuth(() => {
+            const price = parseFloat(product.price);
+            const discountPrice = product.discount_price ? parseFloat(product.discount_price) : undefined;
+            const finalPrice = parseFloat(product.final_price) || discountPrice || price;
+            dispatch(addToCart({
+                id: product.id,
+                name: product.name,
+                price,
+                discountPrice,
+                finalPrice,
+                image: product.image,
+                sku: product.slug,
+                stock: product.stock,
+                quantity: 1
+            }));
+        })();
+    };
+
+    return (
+        <section className="relative bg-[#FAFAF8] py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+            {/* Decorative blob */}
+            <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 bg-red-50 rounded-full blur-3xl opacity-60" />
+            <div className="pointer-events-none absolute -bottom-32 -left-32 w-80 h-80 bg-yellow-50 rounded-full blur-3xl opacity-50" />
+
+            <div className="relative mx-auto max-w-7xl">
+                {/* Header */}
+                <div className="flex items-end justify-between mb-10">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full mb-3">
+                            <Flame size={14} className="text-red-500" />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-red-600">
+                                Bestsellers
+                            </span>
+                        </div>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 tracking-tight">
+                            Our Most <span className="text-red-600">Loved</span> Catches
+                        </h2>
+                        <p className="mt-2 text-zinc-500 text-sm max-w-md">
+                            Fresh picks your neighbors can't stop ordering. Straight from the ocean — cleaned, packed & ready to cook.
+                        </p>
+                    </div>
+
+                    {/* Nav arrows */}
+                    <div className="hidden sm:flex items-center gap-2">
+                        <button
+                            onClick={() => scroll("left")}
+                            disabled={!canScrollLeft}
+                            className="p-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            onClick={() => scroll("right")}
+                            disabled={!canScrollRight}
+                            className="p-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Skeleton loader */}
+                {loading && (
+                    <div className="flex gap-5 overflow-hidden">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="min-w-[280px] bg-white rounded-2xl border border-zinc-100 overflow-hidden animate-pulse">
+                                <div className="h-52 bg-zinc-100" />
+                                <div className="p-5 space-y-3">
+                                    <div className="h-3 w-16 bg-zinc-100 rounded" />
+                                    <div className="h-4 w-3/4 bg-zinc-100 rounded" />
+                                    <div className="h-3 w-1/2 bg-zinc-100 rounded" />
+                                    <div className="flex justify-between">
+                                        <div className="h-5 w-16 bg-zinc-100 rounded" />
+                                        <div className="h-8 w-8 bg-zinc-100 rounded-lg" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Product Carousel */}
+                {!loading && products.length > 0 && (
+                    <div
+                        ref={scrollRef}
+                        className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    >
+                        {products.map((product, i) => (
+                            <ProductCard
+                                key={product.id}
+                                product={product}
+                                image={getProductImage(product)}
+                                discount={getDiscount(product)}
+                                index={i}
+                                onAddToCart={() => handleAddToCart(product)}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {!loading && products.length === 0 && (
+                    <div className="text-center py-16">
+                        <Sparkles className="mx-auto text-zinc-300 mb-4" size={48} />
+                        <p className="text-zinc-400 text-sm">No products available yet. Check back soon!</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Hide scrollbar CSS */}
+            <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
+        </section>
     );
 };
 

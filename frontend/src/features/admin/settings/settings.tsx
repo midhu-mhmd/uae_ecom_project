@@ -338,13 +338,13 @@ const PaymentSettingsView = () => {
         <div className="grid grid-cols-2 gap-4">
           <InputGroup
             label="Min COD Value"
-            value={`₹${cod.min}`}
-            onChange={(v) => dispatch(settingsActions.setCodThresholds({ min: v.replace("₹", ""), max: cod.max }))}
+            value={`AED ${cod.min}`}
+            onChange={(v) => dispatch(settingsActions.setCodThresholds({ min: v.replace("AED ", ""), max: cod.max }))}
           />
           <InputGroup
             label="Max COD Value"
-            value={`₹${cod.max}`}
-            onChange={(v) => dispatch(settingsActions.setCodThresholds({ min: cod.min, max: v.replace("₹", "") }))}
+            value={`AED ${cod.max}`}
+            onChange={(v) => dispatch(settingsActions.setCodThresholds({ min: cod.min, max: v.replace("AED ", "") }))}
           />
         </div>
       </section>
@@ -358,14 +358,14 @@ const ShippingRulesView = () => (
     <section className="bg-white border border-[#EEEEEE] rounded-2xl p-6 shadow-sm space-y-4">
       <h3 className="text-sm font-bold">Delivery Charges</h3>
       <div className="grid grid-cols-2 gap-4">
-        <InputGroup label="Standard Delivery Fee" value="₹49" />
-        <InputGroup label="Free Delivery Above" value="₹999" />
+        <InputGroup label="Standard Delivery Fee" value="AED 49" />
+        <InputGroup label="Free Delivery Above" value="AED 999" />
       </div>
     </section>
     <section className="bg-white border border-[#EEEEEE] rounded-2xl p-6 shadow-sm space-y-4">
       <h3 className="text-sm font-bold">Express Delivery</h3>
       <div className="grid grid-cols-2 gap-4">
-        <InputGroup label="Express Fee" value="₹99" />
+        <InputGroup label="Express Fee" value="AED 99" />
         <InputGroup label="Delivery Window" value="2 Hours" />
       </div>
     </section>

@@ -13,7 +13,7 @@ function App() {
   useEffect(() => {
     dispatch(checkAuth() as any);
     // Minimum 5-second splash screen
-    const timer = setTimeout(() => setMinDelayDone(true), 5000);
+    const timer = setTimeout(() => setMinDelayDone(true), 2000);
     return () => clearTimeout(timer);
   }, [dispatch]);
 

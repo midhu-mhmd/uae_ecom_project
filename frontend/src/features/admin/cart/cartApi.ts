@@ -55,6 +55,7 @@ export type CartsQuery = {
     status?: string;
     page?: number;
     limit?: number;
+    offset?: number;
 };
 
 export const cartsApi = {

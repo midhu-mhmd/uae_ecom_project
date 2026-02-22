@@ -110,7 +110,7 @@ const HowItWorksSection: React.FC = () => {
                         />
                     </button>
                     <p className="mt-3 text-[11px] text-zinc-400">
-                        Free delivery on orders above ₹999
+                        Free delivery on orders above AED 999
                     </p>
                 </div>
             </div>

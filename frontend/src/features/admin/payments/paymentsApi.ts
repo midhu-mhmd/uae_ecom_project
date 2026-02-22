@@ -28,6 +28,7 @@ export type PaymentsQuery = {
     payment_method?: string;
     page?: number;
     limit?: number;
+    offset?: number;
 };
 
 export const paymentsApi = {

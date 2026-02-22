@@ -138,7 +138,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           label="Total Revenue"
-          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
+          value={`AED ${totalRevenue.toLocaleString("en-IN")}`}
           icon={<CreditCard size={18} strokeWidth={1.5} />}
           trend="up"
         />
@@ -191,9 +191,9 @@ const Dashboard: React.FC = () => {
 
             <div className="h-48 w-full relative">
               <div className="absolute inset-0 flex flex-col justify-between text-[9px] text-gray-400 font-bold h-[80%] pointer-events-none">
-                <span>₹{(totalRevenue * 1.2).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                <span>₹{(totalRevenue * 0.6).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
-                <span>₹0</span>
+                <span>AED {(totalRevenue * 1.2).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                <span>AED {(totalRevenue * 0.6).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                <span>AED 0</span>
               </div>
 
               <div className="ml-12 h-full relative">
@@ -376,7 +376,7 @@ const RecentOrderRow = ({ order }: { order: Order }) => {
       <td className="px-5 py-4 text-[#A1A1AA]">
         {new Date(order.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
       </td>
-      <td className="px-5 py-4 font-bold text-right font-mono">₹{order.total.toLocaleString("en-IN")}</td>
+      <td className="px-5 py-4 font-bold text-right font-mono">AED {order.total.toLocaleString("en-IN")}</td>
       <td className="px-5 py-4 text-right">
         <OrderStatusBadge status={order.status} />
       </td>

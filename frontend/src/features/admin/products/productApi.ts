@@ -47,6 +47,7 @@ export type ProductsQuery = {
   status?: string;
   page?: number;
   limit?: number;
+  offset?: number;
 };
 
 export const productsApi = {

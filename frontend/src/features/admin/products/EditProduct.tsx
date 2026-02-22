@@ -189,7 +189,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                     <h2 className="text-lg font-bold">Pricing & Inventory</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-[#A1A1AA]">Price (₹)</label>
+                            <label className="text-xs font-bold uppercase text-[#A1A1AA]">Price (AED)</label>
                             <input
                                 type="number" step="0.01"
                                 {...register("price", { required: "Price is required" })}

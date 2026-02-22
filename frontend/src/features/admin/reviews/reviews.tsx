@@ -96,6 +96,7 @@ const ReviewsManagement: React.FC = () => {
   const [customerFilter, setCustomerFilter] = useState("");
   const [commentFilter, setCommentFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
   const debouncedSearch = useDebounce(searchTerm, 500);
 
   // Column visibility
@@ -127,15 +128,17 @@ const ReviewsManagement: React.FC = () => {
 
   // Fetch when params change (API supports q, rating, is_approved)
   useEffect(() => {
+    const offset = (page - 1) * limit;
     dispatch(
       reviewsActions.fetchReviewsRequest({
         q: debouncedSearch || undefined,
         rating: filterRating === "All" ? undefined : filterRating,
         page,
-        limit: 10,
+        limit,
+        offset,
       })
     );
-  }, [dispatch, debouncedSearch, filterRating, page]);
+  }, [dispatch, debouncedSearch, filterRating, page, limit]);
 
   const handleReset = () => {
     setSearchTerm("");
@@ -471,7 +474,7 @@ const ReviewsManagement: React.FC = () => {
                   <tr key={r.id} className="group hover:bg-[#FBFBFA] transition-colors">
                     {isVisible("index") && (
                       <td className="px-5 py-4 text-xs font-mono text-[#A1A1AA] text-center">
-                        {(page - 1) * 10 + index + 1}
+                        {(page - 1) * limit + index + 1}
                       </td>
                     )}
 
@@ -592,8 +595,20 @@ const ReviewsManagement: React.FC = () => {
 
         {/* --- PAGINATION CONTROLS --- */}
         <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
-          <div className="text-[11px] text-[#A1A1AA] font-medium">
-            Showing {filteredReviews.length} of {totalCount} reviews
+          <div className="flex items-center gap-4">
+            <div className="text-[11px] text-[#A1A1AA] font-medium">
+              Showing {filteredReviews.length} of {totalCount} reviews
+            </div>
+            <select
+              value={limit}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="p-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-xs outline-none focus:border-[#D4D4D8]"
+            >
+              <option value={5}>5 / page</option>
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={50}>50 / page</option>
+            </select>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -606,7 +621,7 @@ const ReviewsManagement: React.FC = () => {
             <span className="text-xs font-bold px-2">Page {page}</span>
             <button
               onClick={() => setPage((p) => p + 1)}
-              disabled={reviews.length < 10 || status === "loading"}
+              disabled={reviews.length < limit || status === "loading"}
               className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight size={14} />

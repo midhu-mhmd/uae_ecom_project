@@ -236,10 +236,10 @@ const CheckoutPage: React.FC = () => {
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-sm font-bold text-slate-900 line-clamp-1">{item.name}</p>
-                                        <p className="text-xs text-slate-500">{item.quantity} x ₹{item.finalPrice}</p>
+                                        <p className="text-xs text-slate-500">{item.quantity} x AED {item.finalPrice}</p>
                                     </div>
                                     <div className="text-sm font-bold text-slate-900">
-                                        ₹{item.finalPrice * item.quantity}
+                                        AED {item.finalPrice * item.quantity}
                                     </div>
                                 </div>
                             ))}
@@ -248,15 +248,15 @@ const CheckoutPage: React.FC = () => {
                         <div className="border-t border-slate-100 pt-4 space-y-2">
                             <div className="flex justify-between text-sm text-slate-500">
                                 <span>Subtotal</span>
-                                <span className="font-bold text-slate-900">₹{cartTotal}</span>
+                                <span className="font-bold text-slate-900">AED {cartTotal}</span>
                             </div>
                             <div className="flex justify-between text-sm text-slate-500">
                                 <span>Shipping</span>
-                                <span className="font-bold text-green-600">{shippingCost === 0 ? "Free" : `₹${shippingCost}`}</span>
+                                <span className="font-bold text-green-600">{shippingCost === 0 ? "Free" : `AED ${shippingCost}`}</span>
                             </div>
                             <div className="flex justify-between items-end pt-2 border-t border-slate-100 mt-2">
                                 <span className="text-base font-bold text-slate-900">Total</span>
-                                <span className="text-2xl font-black text-slate-900">₹{finalTotal}</span>
+                                <span className="text-2xl font-black text-slate-900">AED {finalTotal}</span>
                             </div>
                         </div>
 

@@ -85,9 +85,9 @@ const AdminLayout: React.FC = () => {
       >
         <div className="h-20 flex items-center justify-between px-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-black flex items-center justify-center text-white font-mono font-bold text-sm">S</div>
+            <div className="w-8 h-8 bg-black flex items-center justify-center text-white font-mono font-bold text-sm">F</div>
             {(isSidebarOpen || isMobileMenuOpen) && (
-              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">Solv.</span>
+              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">FreshMa</span>
             )}
           </div>
           <button

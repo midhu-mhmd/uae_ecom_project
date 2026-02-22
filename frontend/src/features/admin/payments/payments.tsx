@@ -72,6 +72,7 @@ const PaymentManagement: React.FC = () => {
   const [amountMax, setAmountMax] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
   const debouncedSearch = useDebounce(searchTerm, 500);
 
   // Column visibility
@@ -102,6 +103,7 @@ const PaymentManagement: React.FC = () => {
   const isVisible = (key: ColumnKey) => visibleColumns[key];
 
   useEffect(() => {
+    const offset = (page - 1) * limit;
     dispatch(
       paymentsActions.fetchPaymentsRequest({
         q: debouncedSearch || undefined,
@@ -114,10 +116,11 @@ const PaymentManagement: React.FC = () => {
             ? undefined
             : methodFilter.toLowerCase(),
         page,
-        limit: 10,
+        limit,
+        offset,
       })
     );
-  }, [dispatch, debouncedSearch, statusFilter, methodFilter, page]);
+  }, [dispatch, debouncedSearch, statusFilter, methodFilter, page, limit]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -240,6 +243,8 @@ const PaymentManagement: React.FC = () => {
             payments={filteredPayments}
             totalCount={totalCount}
             page={page}
+            limit={limit}
+            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
             status={status}
             error={error}
             searchTerm={searchTerm}
@@ -320,10 +325,10 @@ const DashboardView = ({
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Collected" value={`₹${totalCollected.toLocaleString("en-IN")}`} trend="+12.5%" trendType="up" sub="This Month" />
+        <StatCard label="Total Collected" value={`AED ${totalCollected.toLocaleString("en-IN")}`} trend="+12.5%" trendType="up" sub="This Month" />
         <StatCard label="Success Rate" value={`${successRate}%`} trend="+0.4%" trendType="up" sub="Gateway health" />
-        <StatCard label="Pending COD" value={`₹${pendingCod.toLocaleString("en-IN")}`} trend="-5.1%" trendType="down" sub="Collection due" />
-        <StatCard label="Refunded" value={`₹${refundedAmount.toLocaleString("en-IN")}`} trend="" trendType="up" sub={`Total ${payments.filter((p) => p.paymentStatus === "Refunded").length} refunds`} />
+        <StatCard label="Pending COD" value={`AED ${pendingCod.toLocaleString("en-IN")}`} trend="-5.1%" trendType="down" sub="Collection due" />
+        <StatCard label="Refunded" value={`AED ${refundedAmount.toLocaleString("en-IN")}`} trend="" trendType="up" sub={`Total ${payments.filter((p) => p.paymentStatus === "Refunded").length} refunds`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -381,12 +386,16 @@ const PaymentsListView = ({
   onToggleColumn,
   onClearFilters,
   onPageChange,
+  onLimitChange,
+  limit,
   onSelect,
   onExport,
 }: {
   payments: Payment[];
   totalCount: number;
   page: number;
+  limit: number;
+  onLimitChange: (limit: number) => void;
   status: string;
   error: string | null;
   searchTerm: string;
@@ -623,7 +632,7 @@ const PaymentsListView = ({
                   )}
                   {isVisible("amount") && (
                     <td className="px-5 py-4 font-mono text-sm font-bold">
-                      ₹{p.amount.toLocaleString("en-IN")}
+                      AED {p.amount.toLocaleString("en-IN")}
                     </td>
                   )}
                   {isVisible("method") && (
@@ -684,8 +693,20 @@ const PaymentsListView = ({
 
       {/* Pagination */}
       <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
-        <div className="text-[11px] text-[#A1A1AA] font-medium">
-          Showing {payments.length} of {totalCount} transactions
+        <div className="flex items-center gap-4">
+          <div className="text-[11px] text-[#A1A1AA] font-medium">
+            Showing {payments.length} of {totalCount} transactions
+          </div>
+          <select
+            value={limit}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+            className="p-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-xs outline-none focus:border-[#D4D4D8]"
+          >
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+            <option value={50}>50 / page</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -698,7 +719,7 @@ const PaymentsListView = ({
           <span className="text-xs font-bold px-2">Page {page}</span>
           <button
             onClick={() => onPageChange(page + 1)}
-            disabled={payments.length < 10 || status === "loading"}
+            disabled={payments.length < limit || status === "loading"}
             className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight size={14} />
@@ -766,7 +787,7 @@ const PaymentDetailDrawer = ({
           {activeTab === "summary" && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="grid grid-cols-2 gap-4">
-                <DetailBox label="Order Total" value={`₹${payment.amount.toLocaleString("en-IN")}`} icon={<Receipt size={14} />} />
+                <DetailBox label="Order Total" value={`AED ${payment.amount.toLocaleString("en-IN")}`} icon={<Receipt size={14} />} />
                 <DetailBox label="Payment Method" value={payment.paymentMethod} icon={<Wallet size={14} />} />
                 <DetailBox label="Order" value={payment.orderNumber} icon={<Landmark size={14} />} />
                 <DetailBox label="Customer" value={`${payment.customerName}`} icon={<User size={14} />} />
@@ -777,15 +798,15 @@ const PaymentDetailDrawer = ({
                 <div className="p-4 bg-[#F9F9F9] rounded-xl space-y-3 border border-[#EEEEEE]">
                   <div className="flex justify-between text-xs">
                     <span className="text-[#71717A]">Base Amount</span>
-                    <span className="font-bold font-mono">₹{(payment.amount * 0.9524).toFixed(2)}</span>
+                    <span className="font-bold font-mono">AED {(payment.amount * 0.9524).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-[#71717A]">Gateway Fee (~2%)</span>
-                    <span className="font-bold font-mono">₹{(payment.amount * 0.02).toFixed(2)}</span>
+                    <span className="font-bold font-mono">AED {(payment.amount * 0.02).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs border-t pt-3 border-gray-200">
                     <span className="text-[#71717A]">Net Settlement</span>
-                    <span className="font-bold font-mono text-emerald-600">₹{(payment.amount * 0.98).toFixed(2)}</span>
+                    <span className="font-bold font-mono text-emerald-600">AED {(payment.amount * 0.98).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -811,7 +832,7 @@ const PaymentDetailDrawer = ({
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-[#A1A1AA]">Refund Amount</label>
-                  <input type="text" placeholder={`Max ₹${payment.amount.toLocaleString("en-IN")}`} className="w-full p-3 border rounded-xl text-sm font-bold focus:ring-1 focus:ring-black outline-none transition-all shadow-sm" />
+                  <input type="text" placeholder={`Max AED ${payment.amount.toLocaleString("en-IN")}`} className="w-full p-3 border rounded-xl text-sm font-bold focus:ring-1 focus:ring-black outline-none transition-all shadow-sm" />
                 </div>
                 <button className="w-full py-4 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-100">
                   <RefreshCcw size={14} /> Initiate Refund
@@ -856,7 +877,7 @@ const CODView = ({ payments }: { payments: Payment[] }) => {
               <tr key={p.id} className="text-sm group hover:bg-[#FAFAFA] transition-colors">
                 <td className="px-6 py-4 font-mono text-xs font-bold">{p.orderNumber}</td>
                 <td className="px-6 py-4 text-xs">{p.customerName}</td>
-                <td className="px-6 py-4 font-mono font-bold">₹{p.amount.toLocaleString("en-IN")}</td>
+                <td className="px-6 py-4 font-mono font-bold">AED {p.amount.toLocaleString("en-IN")}</td>
                 <td className="px-6 py-4"><PaymentStatusBadge status={p.paymentStatus} /></td>
                 <td className="px-6 py-4 text-right">
                   <button className="px-4 py-1.5 bg-black text-white rounded-lg text-[10px] font-bold shadow-sm">Mark Collected</button>
@@ -893,7 +914,7 @@ const RefundsView = ({ payments }: { payments: Payment[] }) => {
               <tr key={p.id} className="text-sm group hover:bg-[#FAFAFA] transition-colors">
                 <td className="px-6 py-4 font-mono text-xs font-bold">{p.paymentId}</td>
                 <td className="px-6 py-4 font-mono text-xs text-blue-600 font-bold">{p.orderNumber}</td>
-                <td className="px-6 py-4 font-bold text-rose-600">₹{p.amount.toLocaleString("en-IN")}</td>
+                <td className="px-6 py-4 font-bold text-rose-600">AED {p.amount.toLocaleString("en-IN")}</td>
                 <td className="px-6 py-4"><PaymentStatusBadge status={p.paymentStatus} /></td>
               </tr>
             ))
@@ -912,17 +933,17 @@ const SettlementsView = ({ totalCollected }: { totalCollected: number }) => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in">
     <div className="p-6 bg-white border border-[#EEEEEE] rounded-2xl shadow-sm">
       <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Next Payout</p>
-      <h4 className="text-2xl font-bold mt-1">₹{(totalCollected * 0.3).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
+      <h4 className="text-2xl font-bold mt-1">AED {(totalCollected * 0.3).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
       <p className="text-[10px] text-[#A1A1AA] mt-2">Scheduled estimate</p>
     </div>
     <div className="p-6 bg-white border border-[#EEEEEE] rounded-2xl shadow-sm">
       <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Last Settlement</p>
-      <h4 className="text-2xl font-bold mt-1">₹{(totalCollected * 0.7).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
+      <h4 className="text-2xl font-bold mt-1">AED {(totalCollected * 0.7).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
       <p className="text-[10px] text-emerald-600 font-bold mt-2 flex items-center gap-1"><CheckCircle2 size={10} /> Processed</p>
     </div>
     <div className="p-6 bg-white border border-[#EEEEEE] rounded-2xl shadow-sm">
       <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Total Settled</p>
-      <h4 className="text-2xl font-bold mt-1">₹{totalCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
+      <h4 className="text-2xl font-bold mt-1">AED {totalCollected.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h4>
       <p className="text-[10px] text-[#A1A1AA] mt-2">All time</p>
     </div>
   </div>

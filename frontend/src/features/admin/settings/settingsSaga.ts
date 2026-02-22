@@ -28,7 +28,7 @@ function* fetchSettingsWorker(): SagaIterator {
                             storePhone: raw.store_profile.store_phone ?? "",
                             storeAddress: raw.store_profile.store_address ?? "",
                             storeLogo: raw.store_profile.store_logo ?? "",
-                            currency: raw.store_profile.currency ?? "INR",
+                            currency: raw.store_profile.currency ?? "AED",
                             timezone: raw.store_profile.timezone ?? "Asia/Kolkata",
                         }
                         : undefined,
