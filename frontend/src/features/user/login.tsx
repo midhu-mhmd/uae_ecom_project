@@ -118,11 +118,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] text-[#18181B] font-sans antialiased flex items-center justify-center p-6 selection:bg-rose-500 selection:text-white">
-      {/* Decorative background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-zinc-200/50 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-zinc-200/50 blur-[120px] rounded-full" />
-      </div>
+
 
       <div className="w-full max-w-95 relative z-10">
         {/* Main Card */}

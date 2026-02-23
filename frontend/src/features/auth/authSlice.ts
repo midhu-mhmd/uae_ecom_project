@@ -94,6 +94,9 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isLoading = false;
       state.checkingAuth = false;
+      state.step = "input";
+      state.phone_number = null;
+      state.email = null;
     },
 
     authError: (state, action: PayloadAction<string>) => {
@@ -104,7 +107,12 @@ const authSlice = createSlice({
 
     // ✅ Logout trigger (saga will handle API call + cleanup)
     logout: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
       state.isLoading = true;
+      state.step = "input";
+      state.phone_number = null;
+      state.email = null;
     },
 
     resetAuth: () => initialState,

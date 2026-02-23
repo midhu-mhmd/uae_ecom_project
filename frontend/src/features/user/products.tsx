@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
+import React, { useEffect, useState, useCallback, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { productsApi, type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap } from "lucide-react";
+import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
-import { addToCart } from "../shop/cart/cartSlice";
+import { addToCart } from "../admin/cart/cartSlice";
 import { useNavigate } from "react-router-dom";
 import ShrimpLoader from "../../components/loader/preloader";
 
@@ -138,9 +138,11 @@ const UserProductsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const LIMIT = 12;
 
     // Pagination state
-    const [displayLimit, setDisplayLimit] = useState(12);
+    const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
+    const [totalCount, setTotalCount] = useState(0);
 
     // Filters state
     const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
@@ -152,11 +154,17 @@ const UserProductsPage: React.FC = () => {
             const params: any = {};
             if (searchTerm) params.q = searchTerm;
             if (category) params.category = category;
+            if (currentPage > 1) params.page = currentPage;
             setSearchParams(params, { replace: true });
         }, 500);
 
         return () => clearTimeout(handler);
-    }, [searchTerm, category, setSearchParams]);
+    }, [searchTerm, category, currentPage, setSearchParams]);
+
+    // Reset pagination on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, category]);
 
     // Fetch Products
     useEffect(() => {
@@ -164,14 +172,17 @@ const UserProductsPage: React.FC = () => {
         const fetchProducts = async () => {
             try {
                 setLoading(true);
-                const params: any = {};
+                const params: any = {
+                    limit: LIMIT,
+                    offset: (currentPage - 1) * LIMIT
+                };
                 if (searchTerm) params.q = searchTerm;
                 if (category) params.category = category;
 
                 const data = await productsApi.list(params);
                 if (isMounted) {
                     setProducts(data.results);
-                    setDisplayLimit(12); // Reset limit on new search
+                    setTotalCount(data.count || 0);
                 }
             } catch (err: any) {
                 if (isMounted) setError("Failed to load products. Please try again.");
@@ -185,7 +196,7 @@ const UserProductsPage: React.FC = () => {
             isMounted = false;
             clearTimeout(timeout);
         };
-    }, [searchTerm, category]);
+    }, [searchTerm, category, currentPage]);
 
     const handleAddToCart = useCallback((e: React.MouseEvent, product: ProductDto) => {
         e.preventDefault();
@@ -234,10 +245,12 @@ const UserProductsPage: React.FC = () => {
         })();
     }, [dispatch, navigate, requireAuth]);
 
-    // Slice products for "Load More" (Simulation of virtualization benefits)
-    const visibleProducts = useMemo(() => {
-        return products.slice(0, displayLimit);
-    }, [products, displayLimit]);
+    // Scroll to top on page change
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }, [currentPage]);
+
+    const totalPages = Math.ceil(totalCount / LIMIT);
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-red-100 selection:text-red-900">
@@ -295,8 +308,8 @@ const UserProductsPage: React.FC = () => {
                 ) : (
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                            <AnimatePresence>
-                                {visibleProducts.map((product) => (
+                            <AnimatePresence mode="popLayout">
+                                {products.map((product) => (
                                     <ProductCard
                                         key={product.id}
                                         product={product}
@@ -307,16 +320,60 @@ const UserProductsPage: React.FC = () => {
                             </AnimatePresence>
                         </div>
 
-                        {/* Load More Button */}
-                        {products.length > displayLimit && (
-                            <div className="mt-12 flex justify-center">
-                                <button
-                                    onClick={() => setDisplayLimit(prev => prev + 12)}
-                                    className="px-10 py-4 bg-white border border-slate-200 text-slate-900 font-bold rounded-2xl shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95 flex items-center gap-2 group"
-                                >
-                                    Load More
-                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                                </button>
+                        {/* Pagination UI */}
+                        {totalPages > 1 && (
+                            <div className="mt-16 flex flex-col items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all shadow-sm active:scale-90"
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+
+                                    <div className="flex items-center gap-2">
+                                        {[...Array(totalPages)].map((_, i) => {
+                                            const pageNum = i + 1;
+                                            // Simple logic for brevity: show first, last, and current ± 1
+                                            if (
+                                                pageNum === 1 ||
+                                                pageNum === totalPages ||
+                                                Math.abs(pageNum - currentPage) <= 1
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => setCurrentPage(pageNum)}
+                                                        className={`w-12 h-12 rounded-2xl font-bold text-sm transition-all shadow-sm active:scale-90 ${currentPage === pageNum
+                                                            ? "bg-red-600 text-white shadow-red-200"
+                                                            : "bg-white border border-slate-200 text-slate-600 hover:border-red-500 hover:text-red-500"
+                                                            }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                Math.abs(pageNum - currentPage) === 2
+                                            ) {
+                                                return <span key={pageNum} className="text-slate-300">...</span>;
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all shadow-sm active:scale-90"
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
+                                </div>
+
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                    Showing <span className="text-slate-900">{(currentPage - 1) * LIMIT + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * LIMIT, totalCount)}</span> of <span className="text-slate-900">{totalCount}</span> Products
+                                </p>
                             </div>
                         )}
                     </>

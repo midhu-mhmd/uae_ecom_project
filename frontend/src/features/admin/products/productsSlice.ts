@@ -29,8 +29,22 @@ export interface Product {
     updatedAt: string;
 }
 
+export interface Category {
+    id: number;
+    name: string;
+    slug: string;
+    description: string;
+    parent?: number | null;
+    image?: string | null;
+    isActive: boolean;
+    productCount: number;
+}
+
 interface ProductsState {
     items: Product[];
+    categories: Category[];
+    newArrivals: Product[];
+    relatedProducts: Product[];
     totalCount: number;
     currentPage: number;
     status: Status;
@@ -41,6 +55,9 @@ interface ProductsState {
 
 const initialState: ProductsState = {
     items: [],
+    categories: [],
+    newArrivals: [],
+    relatedProducts: [],
     totalCount: 0,
     currentPage: 1,
     status: "idle",
@@ -128,6 +145,55 @@ const productsSlice = createSlice({
         resetStatus: (state) => {
             state.status = "idle";
             state.error = null;
+        },
+        /* ── Discovery & Categories Actions ── */
+        fetchCategoriesRequest: (state) => {
+            state.status = "loading";
+            state.error = null;
+        },
+        fetchCategoriesSuccess: (state, action: PayloadAction<Category[]>) => {
+            state.status = "succeeded";
+            state.categories = action.payload;
+        },
+        fetchCategoriesFailure: (state, action: PayloadAction<string>) => {
+            state.status = "failed";
+            state.error = action.payload;
+        },
+        createCategoryRequest: (state, _action: PayloadAction<any>) => {
+            state.status = "loading";
+            state.error = null;
+        },
+        createCategorySuccess: (state, action: PayloadAction<Category>) => {
+            state.status = "succeeded";
+            state.categories.unshift(action.payload);
+        },
+        createCategoryFailure: (state, action: PayloadAction<string>) => {
+            state.status = "failed";
+            state.error = action.payload;
+        },
+        fetchNewArrivalsRequest: (state) => {
+            state.status = "loading";
+            state.error = null;
+        },
+        fetchNewArrivalsSuccess: (state, action: PayloadAction<Product[]>) => {
+            state.status = "succeeded";
+            state.newArrivals = action.payload;
+        },
+        fetchNewArrivalsFailure: (state, action: PayloadAction<string>) => {
+            state.status = "failed";
+            state.error = action.payload;
+        },
+        fetchRelatedProductsRequest: (state, _action: PayloadAction<number>) => {
+            state.status = "loading";
+            state.error = null;
+        },
+        fetchRelatedProductsSuccess: (state, action: PayloadAction<Product[]>) => {
+            state.status = "succeeded";
+            state.relatedProducts = action.payload;
+        },
+        fetchRelatedProductsFailure: (state, action: PayloadAction<string>) => {
+            state.status = "failed";
+            state.error = action.payload;
         }
     },
 });
@@ -144,3 +210,6 @@ export const selectProductsStatus = (state: RootState) => state.products.status;
 export const selectProductsError = (state: RootState) => state.products.error;
 export const selectSelectedProductId = (state: RootState) => state.products.selectedId;
 export const selectSelectedProduct = (state: RootState) => state.products.items.find((item) => item.id === state.products.selectedId);
+export const selectCategories = (state: RootState) => state.products.categories;
+export const selectNewArrivals = (state: RootState) => state.products.newArrivals;
+export const selectRelatedProducts = (state: RootState) => state.products.relatedProducts;

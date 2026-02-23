@@ -3,8 +3,9 @@ import type { SagaIterator } from "redux-saga";
 import { productsApi } from "./productApi";
 import { productsActions } from "./productsSlice";
 import type { Product } from "./productsSlice";
-import type { ProductDto } from "./productApi";
+import type { ProductDto, CategoryDto } from "./productApi";
 import type { RootState } from "../../../app/store";
+import type { Category } from "./productsSlice";
 
 /* ── Map backend DTO → UI Product ── */
 function mapProductDtoToProduct(dto: ProductDto): Product {
@@ -46,6 +47,20 @@ function mapProductDtoToProduct(dto: ProductDto): Product {
         expectedDeliveryTime: dto.expected_delivery_time ?? null,
         createdAt: dto.created_at,
         updatedAt: dto.updated_at,
+    };
+}
+
+/* ── Map backend DTO → UI Category ── */
+function mapCategoryDtoToCategory(dto: CategoryDto): Category {
+    return {
+        id: dto.id,
+        name: dto.name,
+        slug: dto.slug,
+        description: dto.description,
+        parent: dto.parent,
+        image: dto.image,
+        isActive: dto.is_active,
+        productCount: dto.product_count ?? 0,
     };
 }
 
@@ -111,16 +126,30 @@ function* createProductWorker(
         const product = mapProductDtoToProduct(dto);
 
         yield put(productsActions.createProductSuccess(product));
-
-        // Also refresh list to be safe / get strict ordering if needed
-        // yield put(productsActions.fetchProductsRequest({ page: 1 })); 
     } catch (e: any) {
         console.error("Create Product Error:", e);
-        const errMsg =
-            e?.response?.data?.detail ||
-            e?.response?.data?.message ||
-            e?.message ||
-            "Failed to create product";
+        console.error("Response data:", e?.response?.data);
+        console.error("Response status:", e?.response?.status);
+
+        const data = e?.response?.data;
+        let errMsg = "Failed to create product";
+
+        if (typeof data === "string") {
+            errMsg = data;
+        } else if (data?.detail) {
+            errMsg = data.detail;
+        } else if (data?.message) {
+            errMsg = data.message;
+        } else if (data && typeof data === "object") {
+            // Django validation errors: { field: ["error1", "error2"] }
+            const fieldErrors = Object.entries(data)
+                .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(", ") : val}`)
+                .join(" | ");
+            if (fieldErrors) errMsg = fieldErrors;
+        } else if (e?.message) {
+            errMsg = e.message;
+        }
+
         yield put(productsActions.createProductFailure(errMsg));
     }
 }
@@ -168,9 +197,57 @@ function* deleteProductWorker(
     }
 }
 
+function* fetchCategoriesWorker(): SagaIterator {
+    try {
+        const results: CategoryDto[] = yield call(productsApi.listCategories);
+        const categories = results.map(mapCategoryDtoToCategory);
+        yield put(productsActions.fetchCategoriesSuccess(categories));
+    } catch (e: any) {
+        yield put(productsActions.fetchCategoriesFailure(e.message || "Failed to fetch categories"));
+    }
+}
+
+function* createCategoryWorker(
+    action: ReturnType<typeof productsActions.createCategoryRequest>
+): SagaIterator {
+    try {
+        const dto: CategoryDto = yield call(productsApi.createCategory, action.payload);
+        const category = mapCategoryDtoToCategory(dto);
+        yield put(productsActions.createCategorySuccess(category));
+    } catch (e: any) {
+        yield put(productsActions.createCategoryFailure(e.message || "Failed to create category"));
+    }
+}
+
+function* fetchNewArrivalsWorker(): SagaIterator {
+    try {
+        const results: ProductDto[] = yield call(productsApi.newArrivals);
+        const products = results.map(mapProductDtoToProduct);
+        yield put(productsActions.fetchNewArrivalsSuccess(products));
+    } catch (e: any) {
+        yield put(productsActions.fetchNewArrivalsFailure(e.message || "Failed to fetch new arrivals"));
+    }
+}
+
+function* fetchRelatedProductsWorker(
+    action: ReturnType<typeof productsActions.fetchRelatedProductsRequest>
+): SagaIterator {
+    try {
+        const results: ProductDto[] = yield call(productsApi.related, action.payload);
+        const products = results.map(mapProductDtoToProduct);
+        yield put(productsActions.fetchRelatedProductsSuccess(products));
+    } catch (e: any) {
+        yield put(productsActions.fetchRelatedProductsFailure(e.message || "Failed to fetch related products"));
+    }
+}
+
 export function* productsSaga(): SagaIterator {
     yield takeLatest(productsActions.fetchProductsRequest.type, fetchProductsWorker);
     yield takeLatest(productsActions.createProductRequest.type, createProductWorker);
     yield takeLatest(productsActions.updateProductRequest.type, updateProductWorker);
     yield takeLatest(productsActions.deleteProductRequest.type, deleteProductWorker);
+    yield takeLatest(productsActions.fetchCategoriesRequest.type, fetchCategoriesWorker);
+    yield takeLatest(productsActions.createCategoryRequest.type, createCategoryWorker);
+    yield takeLatest(productsActions.fetchNewArrivalsRequest.type, fetchNewArrivalsWorker);
+    yield takeLatest(productsActions.fetchRelatedProductsRequest.type, fetchRelatedProductsWorker);
 }

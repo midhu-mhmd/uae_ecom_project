@@ -72,7 +72,7 @@ const OrderPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#FDFDFD] font-sans text-slate-800 pb-20">
             {/* Header */}
-            <div className="bg-white border-b border-slate-100 sticky top-[60px] z-30">
+            <div className="bg-white border-b border-slate-100 top-[60px] z-30">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
                         <Package className="text-rose-600" size={28} />

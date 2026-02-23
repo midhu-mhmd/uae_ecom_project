@@ -42,13 +42,29 @@ export interface ProductDto {
 }
 
 export type ProductsQuery = {
-  q?: string;
+  search?: string;
   category?: string;
-  status?: string;
+  category_slug?: string;
+  min_price?: number;
+  max_price?: number;
+  ordering?: "price" | "-price" | "created_at";
   page?: number;
   limit?: number;
   offset?: number;
+  q?: string;
+  status?: string;
 };
+
+export interface CategoryDto {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  parent?: number | null;
+  image?: string | null;
+  is_active: boolean;
+  product_count?: number;
+}
 
 export const productsApi = {
   list: async (
@@ -66,8 +82,21 @@ export const productsApi = {
     return res.data;
   },
 
+  newArrivals: async (): Promise<ProductDto[]> => {
+    const res = await api.get<ProductDto[]>("/products/products/new_arrivals/");
+    return res.data;
+  },
+
+  related: async (id: number): Promise<ProductDto[]> => {
+    const res = await api.get<ProductDto[]>(`/products/products/${id}/related/`);
+    return res.data;
+  },
+
   create: async (payload: Partial<ProductDto> | FormData): Promise<ProductDto> => {
-    const res = await api.post<ProductDto>("/products/products/", payload);
+    const isFormData = payload instanceof FormData;
+    const res = await api.post<ProductDto>("/products/products/", payload, {
+      ...(isFormData && { timeout: 60000 }),
+    });
     return res.data;
   },
 
@@ -81,5 +110,16 @@ export const productsApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/products/products/${id}/`);
+  },
+
+  /* ── Categories ── */
+  listCategories: async (): Promise<CategoryDto[]> => {
+    const res = await api.get<CategoryDto[]>("/products/categories/");
+    return res.data;
+  },
+
+  createCategory: async (payload: Partial<CategoryDto>): Promise<CategoryDto> => {
+    const res = await api.post<CategoryDto>("/products/categories/", payload);
+    return res.data;
   },
 };
