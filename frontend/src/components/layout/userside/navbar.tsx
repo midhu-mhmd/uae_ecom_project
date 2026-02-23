@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User, MapPin, Phone, LogOut, LogIn, Bell, Package, Menu, X, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '../../../hooks';
@@ -8,12 +8,14 @@ import { selectCartItems } from '../../../features/admin/cart/cartSlice';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const isAuthenticated = useAppSelector((state: any) => state.auth.isAuthenticated);
     const cartItems = useAppSelector(selectCartItems);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = () => {
         dispatch(logout());
+        navigate('/login');
     };
 
     return (

@@ -14,6 +14,7 @@ import NotificationPage from '../features/user/notification';
 import Navbar from '../components/layout/userside/navbar';
 import Footer from '../components/layout/userside/footer';
 import OrderPage from '../features/user/order';
+import ProfilePage from '../features/user/profile';
 // import WishlistPage from '../features/user/wishlist';
 
 // Admin components
@@ -55,6 +56,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/orders" element={<OrderPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationPage />} />
           {/* <Route path="/wishlist" element={<WishlistPage />} /> */}
         </Route>
