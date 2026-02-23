@@ -69,6 +69,12 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     }
   }
 
+  // ✅ When sending FormData, delete Content-Type so the browser sets it
+  // automatically with the correct multipart boundary
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+
   return config;
 });
 

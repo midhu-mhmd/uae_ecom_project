@@ -1,34 +1,36 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import {
+    fetchCartRequest,
     removeFromCart,
     updateQuantity,
     selectCartItems,
     selectCartTotal,
-    selectCartLoading,
     selectCartError,
-} from '../shop/cart/cartSlice';
+} from '../admin/cart/cartSlice';
 
 const CartPage: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const cartItems = useAppSelector(selectCartItems);
     const cartTotal = useAppSelector(selectCartTotal);
-    const isLoading = useAppSelector(selectCartLoading);
     const cartError = useAppSelector(selectCartError);
+    const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+    const checkingAuth = useAppSelector((s) => s.auth.checkingAuth);
 
-    // Loading state
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4">
-                <Loader2 size={40} className="text-red-900 animate-spin" />
-                <p className="text-stone-500 font-medium">Loading your cart…</p>
-            </div>
-        );
-    }
+    // Fetch cart from API only if cart is empty (e.g. after page refresh)
+    // If items already exist in Redux (from optimistic addToCart), skip
+    // to avoid overwriting local items before sync completes
+    useEffect(() => {
+        if (!checkingAuth && isAuthenticated && cartItems.length === 0) {
+            dispatch(fetchCartRequest());
+        }
+    }, [dispatch, checkingAuth, isAuthenticated]); // intentionally omit cartItems
+
+    // Loading state removed as requested
 
     // Error state
     if (cartError) {

@@ -4,7 +4,7 @@ import { productsApi, type ProductDto, type ProductImageDto } from "../admin/pro
 import { motion } from "framer-motion";
 import { Star, ShoppingCart, Truck, ShieldCheck, ArrowLeft, Minus, Plus, Heart, Zap } from "lucide-react";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
-import { addToCart } from "../shop/cart/cartSlice";
+import { addToCart } from "../admin/cart/cartSlice";
 
 const ProductProfile: React.FC = () => {
     const { id } = useParams<{ id: string }>();

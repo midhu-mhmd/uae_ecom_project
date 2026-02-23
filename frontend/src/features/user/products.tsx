@@ -4,7 +4,7 @@ import { productsApi, type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap } from "lucide-react";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
-import { addToCart } from "../shop/cart/cartSlice";
+import { addToCart } from "../admin/cart/cartSlice";
 import { useNavigate } from "react-router-dom";
 import ShrimpLoader from "../../components/loader/preloader";
 

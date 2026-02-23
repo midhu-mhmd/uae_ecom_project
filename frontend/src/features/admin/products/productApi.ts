@@ -67,7 +67,12 @@ export const productsApi = {
   },
 
   create: async (payload: Partial<ProductDto> | FormData): Promise<ProductDto> => {
-    const res = await api.post<ProductDto>("/products/products/", payload);
+    const isFormData = payload instanceof FormData;
+    const res = await api.post<ProductDto>("/products/products/", payload, {
+      // Don't set Content-Type manually for FormData — the browser auto-sets it
+      // with the correct multipart boundary. Only extend the timeout for uploads.
+      ...(isFormData && { timeout: 60000 }),
+    });
     return res.data;
   },
 

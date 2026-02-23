@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, User, MapPin, Phone, LogOut, Bell, Package, Menu, X, ChevronRight } from 'lucide-react';
+import { ShoppingCart, User, MapPin, Phone, LogOut, LogIn, Bell, Package, Menu, X, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '../../../hooks';
 import { logout } from '../../../features/auth/authSlice';
-import { selectCartItems } from '../../../features/shop/cart/cartSlice';
+import { selectCartItems } from '../../../features/admin/cart/cartSlice';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -84,55 +84,54 @@ const Navbar: React.FC = () => {
                             Shop
                         </Link>
 
-                        <Link to="/cart" className="relative flex flex-col items-center gap-0.5 min-w-[3.5rem] py-1.5 rounded-xl hover:bg-stone-50 transition-colors group">
-                            <ShoppingCart size={18} className="text-stone-400 group-hover:text-red-600 transition-colors" />
-                            <span className="text-[9px] font-semibold text-stone-400 group-hover:text-red-600 transition-colors">Cart</span>
-                            {/* Badge */}
-                            <span className="absolute top-0.5 right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center ring-2 ring-white min-w-[16px] min-h-[16px]">
-                                {cartItems.length}
-                            </span>
-                        </Link>
+                        {isAuthenticated ? (
+                            <Link to="/cart" className="relative flex flex-col items-center gap-0.5 min-w-[3.5rem] py-1.5 rounded-xl hover:bg-stone-50 transition-colors group">
+                                <ShoppingCart size={18} className="text-stone-400 group-hover:text-red-600 transition-colors" />
+                                <span className="text-[9px] font-semibold text-stone-400 group-hover:text-red-600 transition-colors">Cart</span>
+                                {/* Badge */}
+                                <span className="absolute top-0.5 right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center ring-2 ring-white min-w-[16px] min-h-[16px]">
+                                    {cartItems.length}
+                                </span>
+                            </Link>
+                        ) : null}
 
-                        {/* Desktop Account Dropdown */}
-                        <div className="relative group z-50 hidden md:block">
-                            <button className="flex flex-col items-center gap-0.5 min-w-[3.5rem] py-1.5 rounded-xl hover:bg-slate-50 transition-colors">
-                                <User size={18} className="text-slate-400 group-hover:text-red-600 transition-colors" />
-                                <span className="text-[9px] font-semibold text-slate-400 group-hover:text-red-600 transition-colors">Account</span>
-                            </button>
+                        {/* Desktop Account Dropdown / Login Button */}
+                        {isAuthenticated ? (
+                            <div className="relative group z-50 hidden md:block">
+                                <button className="flex flex-col items-center gap-0.5 min-w-[3.5rem] py-1.5 rounded-xl hover:bg-slate-50 transition-colors">
+                                    <User size={18} className="text-slate-400 group-hover:text-red-600 transition-colors" />
+                                    <span className="text-[9px] font-semibold text-slate-400 group-hover:text-red-600 transition-colors">Account</span>
+                                </button>
 
-                            <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right w-48">
-                                <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2">
-                                    <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
-                                        <User size={14} /> My Profile
-                                    </Link>
-                                    <Link to="/orders" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
-                                        <Package size={14} /> My Orders
-                                    </Link>
-                                    <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
-                                        <Bell size={14} /> Notifications
-                                    </Link>
-
-                                    {isAuthenticated ? (
-                                        <>
-                                            <div className="h-px bg-slate-100 my-1" />
-                                            <button
-                                                onClick={handleLogout}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600"
-                                            >
-                                                <LogOut size={14} /> Logout
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="h-px bg-slate-100 my-1" />
-                                            <Link to="/login" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-black">
-                                                <LogOut size={14} className="rotate-180" /> Login
-                                            </Link>
-                                        </>
-                                    )}
+                                <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right w-48">
+                                    <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2">
+                                        <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
+                                            <User size={14} /> My Profile
+                                        </Link>
+                                        <Link to="/orders" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
+                                            <Package size={14} /> My Orders
+                                        </Link>
+                                        <Link to="/notifications" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600">
+                                            <Bell size={14} /> Notifications
+                                        </Link>
+                                        <div className="h-px bg-slate-100 my-1" />
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors text-xs font-bold text-slate-600 hover:text-red-600"
+                                        >
+                                            <LogOut size={14} /> Logout
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ) : (
+                            <Link
+                                to="/login"
+                                className="hidden md:flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-500/20 hover:bg-red-700 transition-colors"
+                            >
+                                <LogIn size={14} /> Login
+                            </Link>
+                        )}
 
                         {/* Mobile Menu Button - Separated from Account Group */}
                         <button

@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import createSagaMiddleware from "redux-saga";
 import catalogReducer from "../features/shop/catalog/catalogSlice";
-import cartReducer from "../features/shop/cart/cartSlice";
+import { cartReducer } from "../features/admin/cart/cartSlice";
 import customersReducer from "../features/admin/customers/customersSlice";
 import productsReducer from "../features/admin/products/productsSlice";
 import reviewsReducer from "../features/admin/reviews/reviewsSlice";
@@ -28,7 +28,7 @@ export const store = configureStore({
     auth: authReducer,
   },
   middleware: (getDefault) =>
-    getDefault({ thunk: false }).concat(sagaMiddleware),
+    getDefault({ thunk: false, serializableCheck: false }).concat(sagaMiddleware),
 });
 
 sagaMiddleware.run(rootSaga);

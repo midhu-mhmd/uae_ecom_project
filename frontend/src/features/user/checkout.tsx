@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks';
-import { selectCartItems, selectCartTotal, clearCart } from '../shop/cart/cartSlice';
+import { selectCartItems, selectCartTotal, clearCart } from '../admin/cart/cartSlice';
 import { ordersApi } from '../admin/orders/ordersApi';
 import { CheckCircle, MapPin, CreditCard, Truck, ArrowLeft, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';

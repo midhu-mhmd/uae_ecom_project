@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { api } from "../../services/api";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
-import { addToCart } from "../../features/shop/cart/cartSlice";
+import { addToCart } from "../../features/admin/cart/cartSlice";
 
 /* ── Types ── */
 interface ProductImage {

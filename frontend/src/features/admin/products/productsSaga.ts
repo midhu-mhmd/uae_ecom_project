@@ -111,16 +111,30 @@ function* createProductWorker(
         const product = mapProductDtoToProduct(dto);
 
         yield put(productsActions.createProductSuccess(product));
-
-        // Also refresh list to be safe / get strict ordering if needed
-        // yield put(productsActions.fetchProductsRequest({ page: 1 })); 
     } catch (e: any) {
         console.error("Create Product Error:", e);
-        const errMsg =
-            e?.response?.data?.detail ||
-            e?.response?.data?.message ||
-            e?.message ||
-            "Failed to create product";
+        console.error("Response data:", e?.response?.data);
+        console.error("Response status:", e?.response?.status);
+
+        const data = e?.response?.data;
+        let errMsg = "Failed to create product";
+
+        if (typeof data === "string") {
+            errMsg = data;
+        } else if (data?.detail) {
+            errMsg = data.detail;
+        } else if (data?.message) {
+            errMsg = data.message;
+        } else if (data && typeof data === "object") {
+            // Django validation errors: { field: ["error1", "error2"] }
+            const fieldErrors = Object.entries(data)
+                .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(", ") : val}`)
+                .join(" | ");
+            if (fieldErrors) errMsg = fieldErrors;
+        } else if (e?.message) {
+            errMsg = e.message;
+        }
+
         yield put(productsActions.createProductFailure(errMsg));
     }
 }
