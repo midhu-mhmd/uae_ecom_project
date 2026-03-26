@@ -1,12 +1,24 @@
 import React, { useEffect, useState, useCallback, memo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { productsApi, type ProductDto } from "../admin/products/productApi";
+import { type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ShoppingCart, Star, Filter, ArrowRight, Zap, Loader2 } from "lucide-react";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
 import { addToCart } from "../admin/cart/cartSlice";
 import { useNavigate } from "react-router-dom";
 import ShrimpLoader from "../../components/loader/preloader";
+import { useTranslation } from "react-i18next";
+import { useInfiniteProducts } from "../../hooks/queries";
+import { useToast } from "../../components/ui/Toast";
+import useLanguageToggle from "../../hooks/useLanguageToggle";
+
+/** Get the best available image: featured image → first gallery image → main image field */
+const getProductImage = (p: ProductDto): string => {
+    const featured = p.images?.find((img) => img.is_feature);
+    if (featured) return featured.image;
+    if (p.images?.[0]) return p.images[0].image;
+    return p.image || "";
+};
 
 // --- Extracted Memoized Product Card ---
 const ProductCard = memo(({
@@ -18,6 +30,16 @@ const ProductCard = memo(({
     onAddToCart: (e: React.MouseEvent, p: ProductDto) => void;
     onBuyNow: (e: React.MouseEvent, p: ProductDto) => void;
 }) => {
+    const { t } = useTranslation("product");
+    const unitDisplay =
+        product.unit === "kg"
+            ? "Kg"
+            : product.unit === "piece"
+                ? "Piece"
+                : product.unit === "Gram"
+                    ? "100g"
+                    : "";
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -30,7 +52,7 @@ const ProductCard = memo(({
                 {/* Image Container with aspect-ratio to prevent Layout Shift */}
                 <div className="relative aspect-[3/4] bg-slate-50 rounded-[1.5rem] overflow-hidden mb-4 isolate">
                     <img
-                        src={product.image || "https://via.placeholder.com/400x500?text=Fresh+Catch"}
+                        src={getProductImage(product) || "https://via.placeholder.com/400x500?text=Fresh+Catch"}
                         alt={product.name}
                         loading="lazy" // Native Lazy Loading
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
@@ -43,12 +65,12 @@ const ProductCard = memo(({
                     <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
                         {product.discount_price && (
                             <span className="px-2.5 py-1 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm">
-                                Sale
+                                {t("card.sale")}
                             </span>
                         )}
                         {product.average_rating > 4.5 && (
                             <span className="px-2.5 py-1 bg-amber-400 text-black text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm flex items-center gap-1">
-                                <Star size={10} fill="black" /> Top Rated
+                                <Star size={10} fill="black" /> {t("card.topRated")}
                             </span>
                         )}
                     </div>
@@ -58,8 +80,8 @@ const ProductCard = memo(({
                         <button
                             onClick={(e) => onAddToCart(e, product)}
                             disabled={!product.is_available}
-                            className="w-10 h-10 bg-white shadow-xl text-slate-900 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-all duration-300 disabled:opacity-50"
-                            title="Add to Cart"
+                            className="w-10 h-10 bg-white shadow-xl text-slate-900 rounded-full flex items-center justify-center hover:bg-cyan-600 hover:text-white transition-all duration-300 disabled:opacity-50"
+                            title={t("card.addToCart")}
                         >
                             <ShoppingCart size={18} />
                         </button>
@@ -70,7 +92,7 @@ const ProductCard = memo(({
                     {!product.is_available && (
                         <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] flex items-center justify-center z-10">
                             <div className="bg-white/95 backdrop-blur-sm px-4 py-2 rounded-xl shadow-xl">
-                                <span className="text-slate-900 text-xs font-black uppercase tracking-widest">Out of Stock</span>
+                                <span className="text-slate-900 text-xs font-black uppercase tracking-widest">{t("card.outOfStock")}</span>
                             </div>
                         </div>
                     )}
@@ -79,35 +101,35 @@ const ProductCard = memo(({
                 {/* Content */}
                 <div className="px-2 pb-2 flex-grow flex flex-col">
                     <div className="mb-1 flex items-center justify-between">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
-                            {product.category_name || "Seafood"}
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-md">
+                            {product.category_name || t("card.categoryFallback")}
                         </span>
                         <div className="flex items-center gap-1">
                             <Star size={12} className="text-amber-400 fill-amber-400" />
-                            <span className="text-xs font-bold text-slate-700">{product.average_rating ? Number(product.average_rating).toFixed(1) : "New"}</span>
+                            <span className="text-xs font-bold text-slate-700">{product.average_rating ? Number(product.average_rating).toFixed(1) : t("card.new")}</span>
                         </div>
                     </div>
 
                     <h3 className="text-base font-bold text-slate-900 leading-snug mb-1 line-clamp-2">
                         {product.name}
                     </h3>
-                    <p className="text-xs text-slate-500 mb-4 line-clamp-1">{product.description || "Fresh and premium quality."}</p>
+                    <p className="text-xs text-slate-500 mb-4 line-clamp-1">{product.description || t("card.descriptionFallback")}</p>
 
                     <div className="mt-auto pt-3 border-t border-slate-50 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
                                 {product.discount_price ? (
                                     <>
-                                        <span className="text-[10px] text-slate-400 line-through font-medium">AED {product.price}</span>
-                                        <span className="text-lg font-black text-slate-900">AED {product.discount_price}</span>
+                                        <span className="text-[10px] text-slate-400 line-through font-medium">AED {Number(product.price).toFixed(2)}{unitDisplay ? ` / ${unitDisplay}` : ""}</span>
+                                        <span className="text-lg font-black text-slate-900">AED {Number(product.discount_price).toFixed(2)}{unitDisplay ? ` / ${unitDisplay}` : ""}</span>
                                     </>
                                 ) : (
-                                    <span className="text-lg font-black text-slate-900">AED {product.price}</span>
+                                    <span className="text-lg font-black text-slate-900">AED {Number(product.price).toFixed(2)}{unitDisplay ? ` / ${unitDisplay}` : ""}</span>
                                 )}
                             </div>
 
                             <div className="flex items-center gap-2 text-xs font-bold text-slate-900 group/btn">
-                                <span className="hidden sm:inline-block opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-slate-500">View</span>
+                                <span className="hidden sm:inline-block opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-slate-500">{t("card.view")}</span>
                                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors duration-300">
                                     <ArrowRight size={14} />
                                 </div>
@@ -118,10 +140,10 @@ const ProductCard = memo(({
                         <button
                             onClick={(e) => onBuyNow(e, product)}
                             disabled={!product.is_available}
-                            className="w-full py-2.5 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-2.5 bg-cyan-600 text-white text-xs font-bold rounded-xl hover:bg-cyan-700 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Zap size={14} />
-                            Buy Now
+                            {t("card.buyNow")}
                         </button>
                     </div>
                 </div>
@@ -131,72 +153,57 @@ const ProductCard = memo(({
 });
 
 const UserProductsPage: React.FC = () => {
+    const { t } = useTranslation("product");
+    const { isArabic } = useLanguageToggle();
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const requireAuth = useRequireAuth();
-    const [products, setProducts] = useState<ProductDto[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const LIMIT = 12;
 
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-    const [totalCount, setTotalCount] = useState(0);
-
     // Filters state
     const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
     const category = searchParams.get("category");
 
-    // Memoize the filter sync to URL to prevent excessive re-renders
+    // Debounce the search term for data fetching
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    // Sync filters to URL (debounced)
     useEffect(() => {
         const handler = setTimeout(() => {
             const params: any = {};
             if (searchTerm) params.q = searchTerm;
             if (category) params.category = category;
-            if (currentPage > 1) params.page = currentPage;
             setSearchParams(params, { replace: true });
         }, 500);
 
         return () => clearTimeout(handler);
-    }, [searchTerm, category, currentPage, setSearchParams]);
+    }, [searchTerm, category, setSearchParams]);
 
-    // Reset pagination on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, category]);
+    // ✅ TanStack Infinite Query — Load More pagination
+    const filters = {
+        ...(debouncedSearch && { search: debouncedSearch, q: debouncedSearch }),
+        ...(category && { category }),
+    };
+    const {
+        data,
+        isLoading: loading,
+        isError,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteProducts(filters, LIMIT);
 
-    // Fetch Products
-    useEffect(() => {
-        let isMounted = true;
-        const fetchProducts = async () => {
-            try {
-                setLoading(true);
-                const params: any = {
-                    limit: LIMIT,
-                    offset: (currentPage - 1) * LIMIT
-                };
-                if (searchTerm) params.q = searchTerm;
-                if (category) params.category = category;
-
-                const data = await productsApi.list(params);
-                if (isMounted) {
-                    setProducts(data.results);
-                    setTotalCount(data.count || 0);
-                }
-            } catch (err: any) {
-                if (isMounted) setError("Failed to load products. Please try again.");
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
-
-        const timeout = setTimeout(fetchProducts, 300);
-        return () => {
-            isMounted = false;
-            clearTimeout(timeout);
-        };
-    }, [searchTerm, category, currentPage]);
+    const products = data?.pages.flatMap(page => page.results) || [];
+    const totalCount = data?.pages[0]?.count || 0;
+    const error = isError ? t("list.errorLoading") : null;
+    const toast = useToast();
 
     const handleAddToCart = useCallback((e: React.MouseEvent, product: ProductDto) => {
         e.preventDefault();
@@ -213,13 +220,14 @@ const UserProductsPage: React.FC = () => {
                 price: price,
                 discountPrice: discountPrice,
                 finalPrice: finalPrice,
-                image: product.image,
+                image: getProductImage(product),
                 sku: product.sku,
                 stock: product.stock,
                 quantity: 1
             }));
+            toast.show(`${product.name} added to cart`, "cart");
         })();
-    }, [dispatch, requireAuth]);
+    }, [dispatch, requireAuth, toast]);
 
     const handleBuyNow = useCallback((e: React.MouseEvent, product: ProductDto) => {
         e.preventDefault();
@@ -236,24 +244,18 @@ const UserProductsPage: React.FC = () => {
                 price: price,
                 discountPrice: discountPrice,
                 finalPrice: finalPrice,
-                image: product.image,
+                image: getProductImage(product),
                 sku: product.sku,
                 stock: product.stock,
                 quantity: 1
             }));
+            toast.show(`${product.name} added to cart`, "cart");
             navigate('/checkout');
         })();
-    }, [dispatch, navigate, requireAuth]);
-
-    // Scroll to top on page change
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    }, [currentPage]);
-
-    const totalPages = Math.ceil(totalCount / LIMIT);
+    }, [dispatch, navigate, requireAuth, toast]);
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-red-100 selection:text-red-900">
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-cyan-100 selection:text-cyan-900">
 
             {/* ─── Static Filter Bar ─── */}
             <div className="relative z-30 bg-white border-b border-slate-100 shadow-sm">
@@ -262,13 +264,13 @@ const UserProductsPage: React.FC = () => {
 
                         {/* Search Input */}
                         <div className="relative w-full md:w-96 group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={20} />
+                            <Search className={`absolute ${isArabic ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-500 transition-colors`} size={20} />
                             <input
                                 type="text"
-                                placeholder="Search lobsters, prawns, crabs..."
+                                placeholder={t("list.searchPlaceholder")}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 bg-slate-100/50 hover:bg-slate-100 border border-transparent focus:bg-white focus:border-red-200 focus:ring-4 focus:ring-red-500/10 rounded-2xl text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400"
+                                className={`w-full ${isArabic ? 'pr-12 pl-4' : 'pl-12 pr-4'} py-3 bg-slate-100/50 hover:bg-slate-100 border border-transparent focus:bg-white focus:border-cyan-200 focus:ring-4 focus:ring-cyan-500/10 rounded-2xl text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400`}
                             />
                         </div>
                     </div>
@@ -283,12 +285,12 @@ const UserProductsPage: React.FC = () => {
                     </div>
                 ) : error ? (
                     <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
-                        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+                        <div className="w-16 h-16 bg-cyan-50 text-cyan-500 rounded-full flex items-center justify-center mb-4">
                             <Filter size={32} />
                         </div>
                         <p className="text-slate-900 font-bold text-lg mb-2">{error}</p>
                         <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-900 text-white rounded-full text-sm font-bold hover:bg-slate-800 transition-colors">
-                            Try Again
+                            {t("list.tryAgain")}
                         </button>
                     </div>
                 ) : products.length === 0 ? (
@@ -296,13 +298,13 @@ const UserProductsPage: React.FC = () => {
                         <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                             <Search className="text-slate-300" size={40} />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-2">No catch found</h3>
-                        <p className="text-slate-500 mb-8 max-w-sm">We couldn't find any products matching "{searchTerm}".</p>
+                        <h3 className="text-2xl font-black text-slate-900 mb-2">{t("list.noProductsFound")}</h3>
+                        <p className="text-slate-500 mb-8 max-w-sm">{t("list.noProductsDescription", { searchTerm })}</p>
                         <button
                             onClick={() => { setSearchTerm(""); }}
                             className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold text-sm hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-slate-900/20"
                         >
-                            Clear search
+                            {t("list.clearSearch")}
                         </button>
                     </div>
                 ) : (
@@ -320,59 +322,48 @@ const UserProductsPage: React.FC = () => {
                             </AnimatePresence>
                         </div>
 
-                        {/* Pagination UI */}
-                        {totalPages > 1 && (
-                            <div className="mt-16 flex flex-col items-center gap-6">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        disabled={currentPage === 1}
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all shadow-sm active:scale-90"
-                                    >
-                                        <ChevronLeft size={20} />
-                                    </button>
-
-                                    <div className="flex items-center gap-2">
-                                        {[...Array(totalPages)].map((_, i) => {
-                                            const pageNum = i + 1;
-                                            // Simple logic for brevity: show first, last, and current ± 1
-                                            if (
-                                                pageNum === 1 ||
-                                                pageNum === totalPages ||
-                                                Math.abs(pageNum - currentPage) <= 1
-                                            ) {
-                                                return (
-                                                    <button
-                                                        key={pageNum}
-                                                        onClick={() => setCurrentPage(pageNum)}
-                                                        className={`w-12 h-12 rounded-2xl font-bold text-sm transition-all shadow-sm active:scale-90 ${currentPage === pageNum
-                                                            ? "bg-red-600 text-white shadow-red-200"
-                                                            : "bg-white border border-slate-200 text-slate-600 hover:border-red-500 hover:text-red-500"
-                                                            }`}
-                                                    >
-                                                        {pageNum}
-                                                    </button>
-                                                );
-                                            } else if (
-                                                Math.abs(pageNum - currentPage) === 2
-                                            ) {
-                                                return <span key={pageNum} className="text-slate-300">...</span>;
-                                            }
-                                            return null;
-                                        })}
+                        {/* Load More Section */}
+                        {hasNextPage && (
+                            <div className="mt-14 flex flex-col items-center gap-5">
+                                {/* Progress bar
+                                <div className="w-full max-w-xs">
+                                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                                        <motion.div
+                                            className="h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.round((products.length / totalCount) * 100)}%` }}
+                                            transition={{ duration: 0.6, ease: "easeOut" }}
+                                        />
                                     </div>
+                                    <p className="text-center text-[11px] text-slate-400 mt-2 font-medium">
+                                        {products.length} / {totalCount}
+                                    </p>
+                                </div> */}
 
-                                    <button
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                        className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all shadow-sm active:scale-90"
-                                    >
-                                        <ChevronRight size={20} />
-                                    </button>
-                                </div>
+                                {/* Load More button */}
+                                <button
+                                    onClick={() => fetchNextPage()}
+                                    disabled={isFetchingNextPage}
+                                    className="relative px-8 py-3 bg-gradient-to-r from-slate-900 to-slate-700 text-white rounded-full font-semibold text-sm shadow-lg shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/30 hover:-translate-y-0.5 transition-all duration-300 active:scale-95 disabled:opacity-60 disabled:cursor-wait disabled:hover:translate-y-0"
+                                >
+                                    {isFetchingNextPage ? (
+                                        <span className="flex items-center gap-2">
+                                            <Loader2 size={16} className="animate-spin" />
+                                            {t("list.loading", "Loading...")}
+                                        </span>
+                                    ) : (
+                                        t("list.loadMore", "Load More")
+                                    )}
+                                </button>
+                            </div>
+                        )}
 
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                    Showing <span className="text-slate-900">{(currentPage - 1) * LIMIT + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * LIMIT, totalCount)}</span> of <span className="text-slate-900">{totalCount}</span> Products
+                        {/* All loaded */}
+                        {!hasNextPage && products.length > 0 && totalCount > LIMIT && (
+                            <div className="mt-14 flex flex-col items-center gap-2">
+                                <div className="w-full max-w-xs h-1 bg-linear-to-r from-cyan-400 to-cyan-600 rounded-full" />
+                                <p className="text-[11px] text-slate-400 font-medium mt-1">
+                                    ✨ {t("list.allLoaded", "That's everything!")}
                                 </p>
                             </div>
                         )}

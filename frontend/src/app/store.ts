@@ -10,6 +10,7 @@ import adminCartsReducer from "../features/admin/cart/cartSlice";
 import paymentsReducer from "../features/admin/payments/paymentsSlice";
 import settingsReducer from "../features/admin/settings/settingsSlice";
 import authReducer from "../features/auth/authSlice";
+import bannersReducer from "../features/admin/banners/bannerSlice";
 import { rootSaga } from "../store/sagas/rootSaga";
 
 const sagaMiddleware = createSagaMiddleware();
@@ -26,9 +27,10 @@ export const store = configureStore({
     payments: paymentsReducer,
     settings: settingsReducer,
     auth: authReducer,
+    banners: bannersReducer,
   },
   middleware: (getDefault) =>
-    getDefault({ thunk: false, serializableCheck: false }).concat(sagaMiddleware),
+    getDefault({ thunk: true, serializableCheck: false }).concat(sagaMiddleware),
 });
 
 sagaMiddleware.run(rootSaga);

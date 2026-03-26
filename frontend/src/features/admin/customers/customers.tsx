@@ -29,7 +29,16 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
+  MoreVertical,
+  Ban,
+  Undo2,
+  Trash2,
+  ShieldAlert,
+  UserCheck,
+  MapPin,
+  AlertTriangle,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   customersActions,
@@ -38,8 +47,13 @@ import {
   selectCustomersError,
   selectSelectedCustomerId,
   selectCustomersTotal,
+  selectShowDeleted,
+  selectActionStatus,
+  selectActionError,
 } from "./customersSlice";
 import type { Customer } from "./customersApi";
+import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 /* --- Column visibility --- */
 type ColumnKey =
@@ -154,6 +168,140 @@ const InfoField = memo(function InfoField({
   );
 });
 
+/* ── Action Dropdown for each row ── */
+const ActionDropdown = memo(function ActionDropdown({
+  customer,
+  onAction,
+}: {
+  customer: Customer;
+  onAction: (actionType: string, id: string, payload?: any) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setRoleOpen(false);
+        setConfirmDelete(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => { setOpen((v) => !v); setRoleOpen(false); setConfirmDelete(false); }}
+        className="p-2 hover:bg-black hover:text-white rounded-lg transition-colors text-[#A1A1AA]"
+        title="Actions"
+      >
+        <MoreVertical size={16} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl border border-[#EEEEEE] shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          {/* Block / Unblock */}
+          <button
+            onClick={() => {
+              onAction(customer.status === "Active" ? "block" : "unblock", customer.id);
+              setOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-[#FAFAFA] transition-colors text-left"
+          >
+            {customer.status === "Active" ? (
+              <><Ban size={14} className="text-rose-500" /> Block User</>
+            ) : (
+              <><UserCheck size={14} className="text-emerald-500" /> Unblock User</>
+            )}
+          </button>
+
+          {/* Set Role */}
+          <div className="relative">
+            <button
+              onClick={() => setRoleOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium hover:bg-[#FAFAFA] transition-colors text-left"
+            >
+              <span className="flex items-center gap-3">
+                <ShieldAlert size={14} className="text-blue-500" /> Set Role
+              </span>
+              <ChevronRight size={12} className="text-[#A1A1AA]" />
+            </button>
+            {roleOpen && (
+              <div className="absolute left-full top-0 ml-1 w-40 bg-white rounded-xl border border-[#EEEEEE] shadow-xl z-50 py-1.5">
+                {(["admin", "customer", "staff"] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => {
+                      onAction("setRole", customer.id, { role: r });
+                      setOpen(false);
+                      setRoleOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-medium hover:bg-[#FAFAFA] transition-colors text-left ${customer.role === r ? "text-blue-600 font-bold" : ""}`}
+                  >
+                    <Shield size={12} /> {r.charAt(0).toUpperCase() + r.slice(1)}
+                    {customer.role === r && <span className="ml-auto text-[10px]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-[#EEEEEE] my-1" />
+
+          {/* Delete / Restore */}
+          {customer.isDeleted ? (
+            <button
+              onClick={() => {
+                onAction("restore", customer.id);
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-emerald-50 text-emerald-600 transition-colors text-left"
+            >
+              <Undo2 size={14} /> Restore User
+            </button>
+          ) : confirmDelete ? (
+            <div className="px-4 py-2.5 space-y-2">
+              <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
+                <AlertTriangle size={12} /> Confirm delete?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    onAction("softDelete", customer.id);
+                    setOpen(false);
+                    setConfirmDelete(false);
+                  }}
+                  className="flex-1 py-1.5 bg-rose-600 text-white rounded-lg text-[10px] font-bold hover:bg-rose-700"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 py-1.5 bg-gray-100 rounded-lg text-[10px] font-bold hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium hover:bg-rose-50 text-rose-600 transition-colors text-left"
+            >
+              <Trash2 size={14} /> Soft Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const CustomerRow = memo(function CustomerRow({
   customer,
   index,
@@ -161,6 +309,7 @@ const CustomerRow = memo(function CustomerRow({
   limit,
   isVisible,
   onView,
+  onAction,
   joinedLabel,
   lastLoginLabel,
 }: {
@@ -170,11 +319,18 @@ const CustomerRow = memo(function CustomerRow({
   limit: number;
   isVisible: (k: ColumnKey) => boolean;
   onView: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onAction: (actionType: string, id: string, payload?: any) => void;
   joinedLabel: string;
   lastLoginLabel: string;
 }) {
+  const navigate = useNavigate();
+  const handleRowClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, [role='button']")) return;
+    navigate(`/admin/users/${customer.id}`);
+  };
   return (
-    <tr className="group hover:bg-[#FBFBFA] transition-colors">
+    <tr onClick={handleRowClick} className={`group hover:bg-[#FBFBFA] transition-colors cursor-pointer ${customer.isDeleted ? "opacity-50" : ""}`}>
       {isVisible("index") && (
         <td className="px-5 py-4 text-xs font-mono text-[#A1A1AA] text-center">
           {(page - 1) * limit + index + 1}
@@ -197,7 +353,12 @@ const CustomerRow = memo(function CustomerRow({
               </div>
             )}
             <div>
-              <p className="text-xs font-bold">{customer.name}</p>
+              <p className="text-xs font-bold flex items-center gap-1.5">
+                {customer.name}
+                {customer.isDeleted && (
+                  <span className="text-[8px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full font-bold uppercase">Deleted</span>
+                )}
+              </p>
               <p className="text-[10px] text-[#A1A1AA]">{customer.email || "—"}</p>
             </div>
           </div>
@@ -222,7 +383,9 @@ const CustomerRow = memo(function CustomerRow({
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase border ${customer.role === "admin"
               ? "bg-blue-50 text-blue-600 border-blue-100"
-              : "bg-gray-50 text-gray-600 border-gray-200"
+              : customer.role === "staff"
+                ? "bg-amber-50 text-amber-600 border-amber-100"
+                : "bg-gray-50 text-gray-600 border-gray-200"
               }`}
           >
             {customer.role}
@@ -301,7 +464,7 @@ const CustomerRow = memo(function CustomerRow({
 
       {isVisible("actions") && (
         <td className="px-5 py-4 text-right">
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-1">
             <button
               data-id={customer.id}
               onClick={onView}
@@ -310,6 +473,7 @@ const CustomerRow = memo(function CustomerRow({
             >
               <Eye size={16} />
             </button>
+            <ActionDropdown customer={customer} onAction={onAction} />
           </div>
         </td>
       )}
@@ -320,10 +484,15 @@ const CustomerRow = memo(function CustomerRow({
 const CustomerDetailPanel = memo(function CustomerDetailPanel({
   customer,
   onClose,
+  onAction,
 }: {
   customer: Customer;
   onClose: () => void;
+  onAction: (actionType: string, id: string, payload?: any) => void;
 }) {
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [showAddresses, setShowAddresses] = useState(false);
+
   return (
     <>
       <div
@@ -350,11 +519,20 @@ const CustomerDetailPanel = memo(function CustomerDetailPanel({
               <h2 className="text-lg font-black flex items-center gap-2">
                 {customer.name}
                 <span
-                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${customer.role === "admin" ? "bg-blue-50 text-blue-600" : "bg-gray-50 text-gray-500"
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${customer.role === "admin"
+                    ? "bg-blue-50 text-blue-600"
+                    : customer.role === "staff"
+                      ? "bg-amber-50 text-amber-600"
+                      : "bg-gray-50 text-gray-500"
                     }`}
                 >
                   {customer.role}
                 </span>
+                {customer.isDeleted && (
+                  <span className="text-[8px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full font-bold uppercase">
+                    Deleted
+                  </span>
+                )}
               </h2>
               <span className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">
                 User Details · ID: {customer.id}
@@ -523,6 +701,139 @@ const CustomerDetailPanel = memo(function CustomerDetailPanel({
               )}
             </div>
           </div>
+
+          {/* Addresses */}
+          <div>
+            <button
+              onClick={() => setShowAddresses((v) => !v)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA] border-b border-[#EEEEEE] pb-2 mb-4 w-full text-left hover:text-[#52525B] transition-colors"
+            >
+              <MapPin size={12} />
+              Addresses ({customer.addresses?.length || 0})
+              <ChevronRight
+                size={12}
+                className={`ml-auto transition-transform ${showAddresses ? "rotate-90" : ""}`}
+              />
+            </button>
+            {showAddresses && (
+              <div className="space-y-3">
+                {(!customer.addresses || customer.addresses.length === 0) ? (
+                  <p className="text-xs text-[#A1A1AA] italic">No addresses found.</p>
+                ) : (
+                  customer.addresses.map((addr) => (
+                    <div
+                      key={addr.id}
+                      className={`p-3 rounded-xl border text-xs space-y-1 ${addr.is_default
+                        ? "border-emerald-200 bg-emerald-50/50"
+                        : "border-[#EEEEEE] bg-[#FAFAFA]"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px]">
+                          {addr.label || "Address"}
+                          {addr.is_default && (
+                            <span className="ml-2 text-[8px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold uppercase">
+                              Default
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-[#52525B]">{addr.full_name}</p>
+                      <p className="text-[#71717A]">
+                        {[addr.flat_villa_number, addr.building_name, addr.street_address]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                      <p className="text-[#71717A]">
+                        {[addr.area, addr.city, addr.emirate, addr.country]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                      {addr.phone_number && (
+                        <p className="text-[#A1A1AA] text-[10px]">📞 {addr.phone_number}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons Footer */}
+        <div className="p-4 border-t border-[#EEEEEE] bg-[#FAFAFA] space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Block / Unblock */}
+            <button
+              onClick={() => {
+                onAction(customer.status === "Active" ? "block" : "unblock", customer.id);
+                onClose();
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${customer.status === "Active"
+                ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
+                : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+                }`}
+            >
+              {customer.status === "Active" ? (
+                <><Ban size={13} /> Block</>
+              ) : (
+                <><UserCheck size={13} /> Unblock</>
+              )}
+            </button>
+
+            {/* Set Role */}
+            <div className="relative">
+              <button
+                onClick={() => setShowRolePicker((v) => !v)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-all"
+              >
+                <ShieldAlert size={13} /> Set Role <ChevronRight size={10} />
+              </button>
+              {showRolePicker && (
+                <div className="absolute bottom-full mb-1 left-0 w-40 bg-white rounded-xl border border-[#EEEEEE] shadow-xl z-50 py-1.5">
+                  {(["admin", "customer", "staff"] as const).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => {
+                        onAction("setRole", customer.id, { role: r });
+                        setShowRolePicker(false);
+                        onClose();
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-xs font-medium hover:bg-[#FAFAFA] transition-colors text-left ${customer.role === r ? "text-blue-600 font-bold" : ""}`}
+                    >
+                      <Shield size={12} /> {r.charAt(0).toUpperCase() + r.slice(1)}
+                      {customer.role === r && <span className="ml-auto text-[10px]">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Delete / Restore */}
+            {customer.isDeleted ? (
+              <button
+                onClick={() => {
+                  onAction("restore", customer.id);
+                  onClose();
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-all"
+              >
+                <Undo2 size={13} /> Restore
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to soft-delete this user?")) {
+                    onAction("softDelete", customer.id);
+                    onClose();
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-all ml-auto"
+              >
+                <Trash2 size={13} /> Soft Delete
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -538,6 +849,28 @@ const CustomerManagement: React.FC = () => {
   const status = useSelector(selectCustomersStatus);
   const error = useSelector(selectCustomersError);
   const selectedCustomerId = useSelector(selectSelectedCustomerId);
+  const showDeleted = useSelector(selectShowDeleted);
+  const actionStatus = useSelector(selectActionStatus);
+  const actionError = useSelector(selectActionError);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (actionStatus === "succeeded") {
+      setToast({ type: "success", message: "Action completed successfully!" });
+      dispatch(customersActions.actionReset());
+    } else if (actionStatus === "failed") {
+      setToast({ type: "error", message: actionError || "Action failed." });
+      dispatch(customersActions.actionReset());
+    }
+  }, [actionStatus, actionError, dispatch]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -547,7 +880,21 @@ const CustomerManagement: React.FC = () => {
   const [verifiedFilter, setVerifiedFilter] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
+
+  // Prefill phone filter from URL ?phone= query
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const phone = params.get("phone");
+      if (phone) {
+        setPhoneFilter(phone);
+        setPage(1);
+      }
+    } catch (_) {
+      // ignore
+    }
+  }, []);
 
   // smoother typing
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -581,20 +928,20 @@ const CustomerManagement: React.FC = () => {
 
   const isVisible = useCallback((key: ColumnKey) => !!visibleColumns[key], [visibleColumns]);
 
-  // Fetch when params change
+  // Fetch when params change (includes showDeleted)
   useEffect(() => {
     const offset = (page - 1) * limit;
     dispatch(
       customersActions.fetchCustomersRequest({
         q: debouncedSearch || undefined,
-        status: statusFilter === "All" ? undefined : statusFilter,
+        status: statusFilter === "All" ? undefined : statusFilter.toLowerCase(),
         role: roleFilter === "All" ? undefined : roleFilter,
         page,
         limit,
         offset,
       })
     );
-  }, [dispatch, debouncedSearch, statusFilter, roleFilter, page, limit]);
+  }, [dispatch, debouncedSearch, statusFilter, roleFilter, page, limit, showDeleted]);
 
   const handleReset = useCallback(() => {
     setSearchTerm("");
@@ -609,8 +956,13 @@ const CustomerManagement: React.FC = () => {
   const { filteredCustomers, stats } = useMemo(() => {
     let result = customers;
 
-    // Redundant now that it is server-side triggered via fetch useEffect
-    // if (roleFilter !== "All") result = result.filter((c) => c.role === roleFilter);
+    if (statusFilter !== "All") {
+      result = result.filter((c) => c.status === statusFilter);
+    }
+
+    if (roleFilter !== "All") {
+      result = result.filter((c) => c.role === roleFilter);
+    }
 
     if (verifiedFilter === "email") result = result.filter((c) => c.isEmailVerified);
     else if (verifiedFilter === "phone") result = result.filter((c) => c.isPhoneVerified);
@@ -633,8 +985,19 @@ const CustomerManagement: React.FC = () => {
     }
 
     return { filteredCustomers: result, stats: { active, blocked, admins } };
-  }, [customers, verifiedFilter, phoneFilter]);
+  }, [customers, statusFilter, roleFilter, verifiedFilter, phoneFilter]);
 
+  // If phone filter is present in URL and exactly one match, open details panel
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const phone = params.get("phone");
+    if (phone && filteredCustomers.length === 1) {
+      dispatch(customersActions.setSelectedCustomerId(filteredCustomers[0].id));
+    }
+  }, [filteredCustomers, dispatch]);
+
+  const navigate = useNavigate();
+  const location = useLocation();
   const selectedCustomer = useMemo(
     () => filteredCustomers.find((c) => c.id === selectedCustomerId) ?? null,
     [filteredCustomers, selectedCustomerId]
@@ -661,14 +1024,25 @@ const CustomerManagement: React.FC = () => {
     return map;
   }, [filteredCustomers]);
 
-  // View handler (no inline function per row)
+  // View handler navigates to full-page user details
   const onViewCustomer = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       const id = (e.currentTarget.dataset.id as string) || "";
-      if (id) dispatch(customersActions.setSelectedCustomerId(id));
+      if (id) navigate(`/admin/users/${id}`);
     },
-    [dispatch]
+    [navigate]
   );
+
+  // If navigated with ?phone=..., auto open details page when unique
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const phone = params.get("phone");
+    if (!phone) return;
+    const matches = filteredCustomers.filter((c: Customer) => c.phone && c.phone.includes(phone));
+    if (matches.length === 1) {
+      navigate(`/admin/users/${matches[0].id}`, { replace: true });
+    }
+  }, [location.search, filteredCustomers, navigate]);
 
   const onClosePanel = useCallback(() => {
     dispatch(customersActions.setSelectedCustomerId(null));
@@ -712,21 +1086,83 @@ const CustomerManagement: React.FC = () => {
     }, 0);
   }, [filteredCustomers]);
 
-  const toggleRoleQuick = useCallback(() => {
-    setRoleFilter((prev) => {
-      // if All -> admin (quick view), admin -> user, user -> admin
-      if (prev === "All") return "admin";
-      return prev === "admin" ? "user" : "admin";
-    });
+  const showAllUsers = useCallback(() => {
+    setStatusFilter("All");
+    setRoleFilter("All");
     setPage(1);
   }, []);
 
+  const showAdmins = useCallback(() => {
+    setRoleFilter("admin");
+    setStatusFilter("All");
+    setPage(1);
+  }, []);
+
+  const showActive = useCallback(() => {
+    setStatusFilter("Active");
+    setRoleFilter("All");
+    setPage(1);
+  }, []);
+
+  const showBlocked = useCallback(() => {
+    setStatusFilter("Blocked");
+    setRoleFilter("All");
+    setPage(1);
+  }, []);
+
+  // Action handler for block/unblock/softDelete/restore/setRole
+  const onAction = useCallback(
+    (actionType: string, id: string, payload?: any) => {
+      dispatch(customersActions.actionRequest({ type: actionType, id, payload }));
+    },
+    [dispatch]
+  );
+
+  const toggleShowDeleted = useCallback(() => {
+    dispatch(customersActions.toggleShowDeleted());
+    setPage(1);
+  }, [dispatch]);
+
   return (
     <div className="min-h-screen w-full space-y-6 text-[#18181B] bg-[#FDFDFD]">
+      {/* --- TOAST --- */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100]"
+          >
+            <div
+              className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold backdrop-blur-xl ${toast.type === "success"
+                ? "bg-emerald-50/90 border-emerald-200 text-emerald-700"
+                : "bg-rose-50/90 border-rose-200 text-rose-700"
+                }`}
+            >
+              {toast.type === "success" ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+              {toast.message}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* --- PAGE HEADER --- */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-black">Customers</h1>
-        <p className="text-[#71717A] text-sm mt-1">Manage users and their accounts.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-black">Customers</h1>
+          <p className="text-[#71717A] text-sm mt-1">Manage users and their accounts.</p>
+        </div>
+        <button
+          onClick={toggleShowDeleted}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-xs font-bold transition-all ${showDeleted
+            ? "bg-rose-600 text-white border-rose-600 hover:bg-rose-700"
+            : "bg-white text-[#52525B] border-[#EEEEEE] hover:bg-[#FAFAFA]"
+            }`}
+        >
+          <Trash2 size={14} />
+          {showDeleted ? "Showing All (incl. Deleted)" : "Show Deleted"}
+        </button>
       </div>
 
       {/* --- STATS --- */}
@@ -745,6 +1181,7 @@ const CustomerManagement: React.FC = () => {
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
           onClick={() => {
             setStatusFilter("Active");
+            setRoleFilter("All");
             setPage(1);
           }}
           active={statusFilter === "Active"}
@@ -756,6 +1193,7 @@ const CustomerManagement: React.FC = () => {
           icon={<XCircle size={16} className="text-rose-500" />}
           onClick={() => {
             setStatusFilter("Blocked");
+            setRoleFilter("All");
             setPage(1);
           }}
           active={statusFilter === "Blocked"}
@@ -767,6 +1205,7 @@ const CustomerManagement: React.FC = () => {
           icon={<Shield size={16} className="text-blue-500" />}
           onClick={() => {
             setRoleFilter("admin");
+            setStatusFilter("All");
             setPage(1);
           }}
           active={roleFilter === "admin"}
@@ -778,17 +1217,48 @@ const CustomerManagement: React.FC = () => {
         {/* Toolbar */}
         <div className="p-4 border-b border-[#EEEEEE] flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-            {/* User/Admin Toggle */}
             <button
-              onClick={toggleRoleQuick}
-              className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${roleFilter === "admin"
-                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                : "bg-black text-white border-black hover:bg-gray-800"
+              onClick={showAllUsers}
+              className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${statusFilter === "All" && roleFilter === "All"
+                ? "bg-black text-white border-black"
+                : "bg-white text-black border-[#EEEEEE] hover:bg-gray-50"
                 }`}
-              title="Quick toggle: Admins ↔ Users (All -> Admins)"
+              title="Show all users"
             >
-              {roleFilter === "admin" ? <Shield size={14} /> : <User size={14} />}
-              {roleFilter === "admin" ? "Show Users" : "Show Admins"}
+              <User size={14} /> All
+            </button>
+
+            <button
+              onClick={showAdmins}
+              className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${roleFilter === "admin"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-black border-[#EEEEEE] hover:bg-gray-50"
+                }`}
+              title="Show all admins"
+            >
+              <Shield size={14} /> Admins
+            </button>
+
+            <button
+              onClick={showActive}
+              className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${statusFilter === "Active"
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white text-black border-[#EEEEEE] hover:bg-gray-50"
+                }`}
+              title="Show active users"
+            >
+              <CheckCircle2 size={14} /> Active
+            </button>
+
+            <button
+              onClick={showBlocked}
+              className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${statusFilter === "Blocked"
+                ? "bg-rose-600 text-white border-rose-600"
+                : "bg-white text-black border-[#EEEEEE] hover:bg-gray-50"
+                }`}
+              title="Show blocked users"
+            >
+              <Ban size={14} /> Blocked
             </button>
 
             <div className="h-6 w-px bg-[#EEEEEE] mx-1" />
@@ -1058,6 +1528,7 @@ const CustomerManagement: React.FC = () => {
                       limit={limit}
                       isVisible={isVisible}
                       onView={onViewCustomer}
+                      onAction={onAction}
                       joinedLabel={fd?.joined ?? "—"}
                       lastLoginLabel={fd?.lastLogin ?? "Never"}
                     />
@@ -1120,7 +1591,7 @@ const CustomerManagement: React.FC = () => {
       </div>
 
       {/* --- CUSTOMER DETAILS SLIDE-OVER --- */}
-      {selectedCustomer && <CustomerDetailPanel customer={selectedCustomer} onClose={onClosePanel} />}
+      {selectedCustomer && <CustomerDetailPanel customer={selectedCustomer} onClose={onClosePanel} onAction={onAction} />}
     </div>
   );
 };

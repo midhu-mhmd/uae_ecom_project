@@ -6,8 +6,24 @@ import HowItWorksSection from "../../components/userside/howitworksSection";
 import FreshnessSection from "../../components/userside/freshnessSection";
 import OffersSection from "../../components/userside/offersSection";
 import ReviewsSection from "../../components/userside/reviewsSection";
+import ProfileCompletionModal from "../../components/userside/ProfileCompletionModal";
+import { useSelector } from "react-redux";
+import { useState, useEffect } from "react";
 
 const Home: React.FC = () => {
+  const { user, isAuthenticated } = useSelector((state: any) => state.auth);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const completedKey = `profile_completed_${user.id}`;
+      const alreadyCompleted = localStorage.getItem(completedKey);
+      if (!alreadyCompleted) {
+        setShowProfileModal(true);
+      }
+    }
+  }, [isAuthenticated, user]);
+
   return (
     <div className="flex flex-col bg-white">
       <Hero />
@@ -17,6 +33,12 @@ const Home: React.FC = () => {
       <FreshnessSection />
       <OffersSection />
       <ReviewsSection />
+
+      <ProfileCompletionModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+      />
     </div>
   );
 };

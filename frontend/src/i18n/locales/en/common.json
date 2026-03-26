@@ -1,0 +1,252 @@
+{
+  "top": {
+    "delivering": "Delivering to your doorstep",
+    "offers": "Offers",
+    "trackOrder": "Track Order",
+    "support": "Support"
+  },
+  "brand": {
+    "subtitle": "Online Fish Market"
+  },
+  "location": {
+    "deliverTo": "Deliver to",
+    "select": "Select Location"
+  },
+  "nav": {
+    "shop": "Shop",
+    "cart": "Cart",
+    "account": "Account",
+    "home": "Home",
+    "allProducts": "All Products",
+    "myCart": "My Cart"
+  },
+  "account": {
+    "myProfile": "My Profile",
+    "myOrders": "My Orders",
+    "notifications": "Notifications",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "loginTitle": "Welcome Back",
+    "otpSignin": "OTP Sign-in",
+    "phone": "Phone",
+    "email": "Email",
+    "emailPlaceholder": "Email Address",
+    "sendOtp": "Send OTP",
+    "sending": "Sending...",
+    "verify": "Verify",
+    "verifying": "Verifying...",
+    "otpSentTo": "OTP sent to",
+    "expired": "Expired",
+    "change": "Change",
+    "otpPlaceholder": "Enter 6-digit OTP",
+    "resendOtp": "Resend OTP",
+    "resendIn": "Resend in {{s}}s",
+    "createAccount": "Create account",
+    "registerUsingOtp": "Register using OTP. No password needed.",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "firstNamePlaceholder": "First name",
+    "lastNamePlaceholder": "Last name",
+    "phoneNumber": "Phone number",
+    "phoneDigits": "{{n}} digits",
+    "otpSixDigits": "OTP (6 digits)",
+    "otpExpiredText": "This OTP has expired. Please request a new one.",
+    "verifyContinue": "Verify & Continue",
+    "termsSentence": "I agree to the Terms and Privacy Policy."
+  },
+  "mobile": {
+    "menu": "Menu",
+    "language": "Language",
+    "welcomeBack": "Welcome Back",
+    "member": "Member",
+    "viewProfile": "View Profile",
+    "welcomeBrand": "Welcome to SIMAK FRESH",
+    "loginRegister": "Login / Register",
+    "shop": "Shop",
+    "account": "Account"
+  },
+  "footer": {
+    "newsletter": {
+      "title": "🦐 Get Fresh Deals in Your Inbox",
+      "subtitle": "Weekly offers, new arrivals & seasonal recipes. No spam, ever.",
+      "placeholder": "Enter your email",
+      "subscribe": "Subscribe"
+    },
+    "brandDescription": "India's freshest seafood, delivered to your doorstep. From harbour to home in hours — cleaned, packed & ready to cook.",
+    "location": "Kerala, India",
+    "timing": "6 AM – 9 PM, Mon–Sun",
+    "shop": "Shop",
+    "company": "Company",
+    "support": "Support",
+    "secure": "FSSAI Licensed • 100% Secure Payments",
+    "rights": "All rights reserved.",
+    "shopLinks": [
+      {
+        "label": "All Seafood"
+      },
+      {
+        "label": "Prawns & Shrimp"
+      },
+      {
+        "label": "Fish"
+      },
+      {
+        "label": "Crab & Lobster"
+      },
+      {
+        "label": "Squid & Octopus"
+      },
+      {
+        "label": "Ready to Cook"
+      },
+      {
+        "label": "Combo Packs"
+      }
+    ],
+    "companyLinks": [
+      {
+        "label": "About Us"
+      },
+      {
+        "label": "Our Story"
+      },
+      {
+        "label": "Freshness Promise"
+      },
+      {
+        "label": "Careers"
+      },
+      {
+        "label": "Blog"
+      },
+      {
+        "label": "Press"
+      }
+    ],
+    "supportLinks": [
+      {
+        "label": "Help Center"
+      },
+      {
+        "label": "Track Order"
+      },
+      {
+        "label": "Shipping Info"
+      },
+      {
+        "label": "Returns & Refunds"
+      },
+      {
+        "label": "Contact Us"
+      },
+      {
+        "label": "FAQs"
+      }
+    ],
+    "legalLinks": [
+      {
+        "label": "Privacy Policy"
+      },
+      {
+        "label": "Terms of Service"
+      },
+      {
+        "label": "Refund Policy"
+      },
+      {
+        "label": "Cookie Policy"
+      }
+    ],
+    "download": "Download App",
+    "getItOn": "Get it on",
+    "downloadOn": "Download on",
+    "weAccept": "We Accept",
+    "paymentMethods": {
+      "cards": "Cards",
+      "upi": "UPI",
+      "cod": "COD"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "all": "All",
+    "unread": "Unread",
+    "read": "Read",
+    "showAll": "Show all notifications",
+    "showUnread": "Show unread",
+    "showRead": "Show read",
+    "loading": "Loading notifications…",
+    "emptyAll": "No notifications yet",
+    "emptyUnread": "No unread notifications",
+    "emptyRead": "No read notifications",
+    "emptyHintAll": "We'll let you know when something important happens.",
+    "emptyHintOther": "Try switching filters or check back later.",
+    "markRead": "Mark as Read",
+    "delete": "Delete"
+  },
+  "wishlist": {
+    "title": "My Wishlist",
+    "subtitle": "Save your favorite catch for later.",
+    "clearAll": "Clear All",
+    "emptyTitle": "Your wishlist is empty",
+    "emptyDescription": "You haven't saved any items yet. Browse our fresh collection and find something you love!",
+    "explore": "Explore Products",
+    "outOfStock": "Out of Stock",
+    "removeTitle": "Remove from wishlist"
+  },
+  "errors": {
+    "returnToStore": "RETURN TO STORE",
+    "goBack": "Go Back",
+    "errorCode": "Error {{code}}",
+    "notFound": {
+      "title": "Lost at sea",
+      "description": "The page you're looking for doesn't exist or has been moved."
+    },
+    "serverError": {
+      "title": "Something went wrong",
+      "description": "Our servers are experiencing issues. Please try again later."
+    },
+    "network": {
+      "title": "No Connection",
+      "description": "Please check your internet connection and try again.",
+      "tryAgain": "Try Again"
+    },
+    "badRequest": {
+      "title": "Bad Request",
+      "description": "The server couldn't understand the request. Please try again."
+    },
+    "forbidden": {
+      "title": "Access Denied",
+      "description": "You don't have permission to access this page."
+    },
+    "unauthorized": {
+      "title": "Session Expired",
+      "description": "Please log in again to continue.",
+      "goToLogin": "Go to Login"
+    },
+    "modal": {
+      "requestError": "Request Error",
+      "badRequest": "400 — Bad Request",
+      "serverError": "500 — Server Error",
+      "dismiss": "Dismiss"
+    }
+  },
+  "profileModal": {
+    "title": "Complete Your Profile",
+    "subtitle": "Please let us know your name and preferred language.",
+    "chooseLang": "Choose your preferred language.",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "preferredLang": "Preferred Language",
+    "save": "Save & Continue",
+    "saving": "Saving...",
+    "skip": "Skip for now",
+    "firstNameRequired": "First Name is required.",
+    "saveFailed": "Failed to save details. Please try again."
+  }
+}

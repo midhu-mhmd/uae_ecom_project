@@ -187,7 +187,7 @@ export const {
 // User cart selectors
 export const selectCartItems = (state: RootState) => state.cart.items;
 export const selectCartTotal = (state: RootState) =>
-    state.cart.items.reduce((total, item) => total + item.finalPrice * item.quantity, 0);
+    Number(state.cart.items.reduce((total, item) => total + item.finalPrice * item.quantity, 0).toFixed(2));
 export const selectCartCount = (state: RootState) =>
     state.cart.items.reduce((count, item) => count + item.quantity, 0);
 export const selectCartLoading = (state: RootState) => state.cart.isLoading;

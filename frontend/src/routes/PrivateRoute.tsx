@@ -14,7 +14,7 @@ export const PrivateRoute = ({ roles }: Props) => {
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 size={36} className="animate-spin text-red-600" />
+        <Loader2 size={36} className="animate-spin text-cyan-600" />
       </div>
     );
   }

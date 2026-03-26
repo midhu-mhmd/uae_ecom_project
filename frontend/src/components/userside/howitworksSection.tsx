@@ -7,59 +7,54 @@ import {
     ChevronRight,
     Waves,
 } from "lucide-react";
-
-/* ── Steps Data ── */
-const steps = [
-    {
-        number: "01",
-        icon: <Search size={28} />,
-        title: "Browse & Pick",
-        description:
-            "Explore our daily catch — from Pomfret and Prawns to Squid and Surmai. Filter by type, size, or prep style.",
-        detail: "Cleaned • Steaks • Fillets • Whole",
-        gradient: "",
-        bg: "bg-red-50",
-        accent: "text-red-600",
-    },
-    {
-        number: "02",
-        icon: <ShoppingBag size={28} />,
-        title: "Add to Cart & Pay",
-        description:
-            "Choose your quantity, pick a delivery slot, and pay securely via UPI, Cards, or Cash on Delivery.",
-        detail: "UPI • Cards • COD • Wallets",
-        gradient: "",
-        bg: "bg-yellow-50",
-        accent: "text-amber-800",
-    },
-    {
-        number: "03",
-        icon: <Truck size={28} />,
-        title: "We Pack & Ship",
-        description:
-            "Your order is hygienically cleaned, vacuum-packed with ice, and dispatched in our insulated cold-chain boxes.",
-        detail: "Ice-packed • Vacuum-sealed • Insulated",
-        gradient: "",
-        bg: "bg-red-50",
-        accent: "text-red-600",
-    },
-    {
-        number: "04",
-        icon: <UtensilsCrossed size={28} />,
-        title: "Cook & Enjoy!",
-        description:
-            "Receive fresh seafood at your door — ready to cook. Try our chef-curated recipes for the perfect dish.",
-        detail: "Same-day delivery • Recipe cards included",
-        gradient: "",
-        bg: "bg-yellow-50",
-        accent: "text-amber-800",
-    },
-];
+import { useTranslation } from "react-i18next";
+import { navigateTo } from '../../utils/navigate';
 
 /* ── Component ── */
 const HowItWorksSection: React.FC = () => {
+    const { t } = useTranslation("home");
+
+    const steps = [
+        {
+            number: "01",
+            icon: <Search size={28} />,
+            title: t("howItWorks.steps.0.title"),
+            description: t("howItWorks.steps.0.description"),
+            detail: t("howItWorks.steps.0.detail"),
+            bg: "bg-cyan-50",
+            accent: "text-cyan-600",
+        },
+        {
+            number: "02",
+            icon: <ShoppingBag size={28} />,
+            title: t("howItWorks.steps.1.title"),
+            description: t("howItWorks.steps.1.description"),
+            detail: t("howItWorks.steps.1.detail"),
+            bg: "bg-yellow-50",
+            accent: "text-amber-800",
+        },
+        {
+            number: "03",
+            icon: <Truck size={28} />,
+            title: t("howItWorks.steps.2.title"),
+            description: t("howItWorks.steps.2.description"),
+            detail: t("howItWorks.steps.2.detail"),
+            bg: "bg-cyan-50",
+            accent: "text-cyan-600",
+        },
+        {
+            number: "04",
+            icon: <UtensilsCrossed size={28} />,
+            title: t("howItWorks.steps.3.title"),
+            description: t("howItWorks.steps.3.description"),
+            detail: t("howItWorks.steps.3.detail"),
+            bg: "bg-yellow-50",
+            accent: "text-amber-800",
+        },
+    ];
+
     return (
-        <section className="relative bg-white py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <section className="relative bg-white py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
             {/* Decorative waves */}
             <div className="pointer-events-none absolute top-0 left-0 right-0 h-20 bg-white" />
             <div className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 opacity-[0.03]">
@@ -68,21 +63,21 @@ const HowItWorksSection: React.FC = () => {
 
             <div className="relative mx-auto max-w-6xl">
                 {/* Header */}
-                <div className="text-center mb-16">
+                <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-zinc-100 rounded-full mb-4">
                         <Waves size={14} className="text-cyan-500" />
                         <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-600">
-                            How It Works
+                            {t("howItWorks.kicker")}
                         </span>
                     </div>
                     <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 tracking-tight">
-                        From Ocean to{" "}
-                        <span className="text-red-600">
-                            Your Plate
+                        {t("howItWorks.title")}{" "}
+                        <span className="text-cyan-600">
+                            {t("howItWorks.titleHighlight")}
                         </span>
                     </h2>
                     <p className="mt-4 text-zinc-500 text-sm max-w-lg mx-auto leading-relaxed">
-                        Four simple steps to the freshest seafood you've ever tasted. No middlemen, no delays — just pure freshness.
+                        {t("howItWorks.subtitle")}
                     </p>
                 </div>
 
@@ -90,7 +85,7 @@ const HowItWorksSection: React.FC = () => {
                 <div className="relative">
                     {/* Connecting line (desktop) */}
                     <div className="hidden lg:block absolute top-[72px] left-[10%] right-[10%] h-[2px]">
-                        <div className="w-full h-full bg-red-100 rounded-full" />
+                        <div className="w-full h-full bg-cyan-100 rounded-full" />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
@@ -101,16 +96,19 @@ const HowItWorksSection: React.FC = () => {
                 </div>
 
                 {/* CTA */}
-                <div className="text-center mt-16">
-                    <button className="group inline-flex items-center gap-2 px-8 py-3.5 bg-red-600 text-white rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:bg-red-700 transition-all duration-300 active:scale-[0.98]">
-                        Start Shopping
+                <div className="text-center mt-10">
+                    <button
+                        className="group inline-flex items-center gap-2 px-8 py-3.5 bg-cyan-600 text-white rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:bg-cyan-700 transition-all duration-300 active:scale-[0.98]"
+                        onClick={() => navigateTo('/products')}
+                    >
+                        {t("howItWorks.cta")}
                         <ChevronRight
                             size={16}
                             className="transition-transform group-hover:translate-x-1"
                         />
                     </button>
                     <p className="mt-3 text-[11px] text-zinc-400">
-                        Free delivery on orders above AED 999
+                        {t("howItWorks.freeDelivery")}
                     </p>
                 </div>
             </div>
@@ -125,7 +123,6 @@ interface StepData {
     title: string;
     description: string;
     detail: string;
-    gradient: string;
     bg: string;
     accent: string;
 }
@@ -162,12 +159,12 @@ const StepCard: React.FC<{ step: StepData; index: number; isLast: boolean }> = (
             <div className="relative z-10 mb-5">
                 {/* Glow ring */}
                 <div
-                    className={`absolute -inset-3 rounded-full ${index % 2 === 0 ? 'bg-red-400' : 'bg-yellow-500'} opacity-20 blur-md transition-all duration-500 group-hover:opacity-30`}
+                    className={`absolute -inset-3 rounded-full ${index % 2 === 0 ? 'bg-cyan-400' : 'bg-yellow-500'} opacity-20 blur-md transition-all duration-500 group-hover:opacity-30`}
                 />
 
                 {/* Icon circle */}
                 <div
-                    className={`relative w-[72px] h-[72px] rounded-2xl ${index % 2 === 0 ? 'bg-red-600' : 'bg-yellow-500'} text-white flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl cursor-default`}
+                    className={`relative w-[72px] h-[72px] rounded-2xl ${index % 2 === 0 ? 'bg-cyan-600' : 'bg-yellow-500'} text-white flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl cursor-default`}
                 >
                     {step.icon}
                 </div>

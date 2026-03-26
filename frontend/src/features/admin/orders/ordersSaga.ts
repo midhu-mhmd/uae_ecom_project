@@ -9,16 +9,14 @@ import type { RootState } from "../../../app/store";
 /* ── Normalize status strings from backend ── */
 function normalizeOrderStatus(raw: string): OrderStatus {
     const map: Record<string, OrderStatus> = {
-        pending: "Pending",
-        confirmed: "Confirmed",
-        processing: "Processing",
-        shipped: "Shipped",
-        delivered: "Delivered",
-        cancelled: "Cancelled",
-        returned: "Returned",
-        paid: "Paid",
+        pending: "PENDING",
+        paid: "PAID",
+        processing: "PROCESSING",
+        shipped: "SHIPPED",
+        delivered: "DELIVERED",
+        cancelled: "CANCELLED",
     };
-    return map[raw.toLowerCase()] ?? "Pending";
+    return map[raw.toLowerCase()] ?? "PENDING";
 }
 
 function normalizePaymentStatus(raw: string): PaymentStatus {
@@ -163,14 +161,15 @@ function* updateStatusWorker(
     action: ReturnType<typeof ordersActions.updateStatusRequest>
 ): SagaIterator {
     try {
-        const { id, status } = action.payload;
-        const raw: any = yield call(ordersApi.updateStatus, id, status);
+        const { id, status, notes } = action.payload;
+        const raw: any = yield call(ordersApi.updateStatus, id, status, notes);
         const updatedOrder = mapOrderDtoToOrder(raw);
 
         yield put(ordersActions.updateStatusSuccess(updatedOrder));
 
-        // Optionally refresh list if filters might hide it, or just rely on local update
-        // yield put(ordersActions.fetchOrdersRequest()); 
+        // Re-fetch order list to reflect changes
+        const lastQuery: any = yield select((state: RootState) => state.orders.lastQuery);
+        yield put(ordersActions.fetchOrdersRequest(lastQuery ?? undefined));
     } catch (e: any) {
         const errMsg =
             e?.response?.data?.detail ||

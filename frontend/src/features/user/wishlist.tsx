@@ -7,9 +7,11 @@ import {
     Trash2,
     ArrowRight
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { type ProductDto } from "../admin/products/productApi";
 
 const WishlistPage: React.FC = () => {
+    const { t } = useTranslation("common");
     const [wishlistItems, setWishlistItems] = useState<ProductDto[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -52,19 +54,19 @@ const WishlistPage: React.FC = () => {
                     <div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
                             <Heart className="text-rose-600 fill-rose-600" size={28} />
-                            My Wishlist
+                            {t("wishlist.title")}
                         </h1>
                         <p className="text-sm text-slate-500 mt-2 font-medium">
-                            Save your favorite catch for later.
+                            {t("wishlist.subtitle")}
                         </p>
                     </div>
 
                     {wishlistItems.length > 0 && (
                         <button
                             onClick={clearWishlist}
-                            className="self-start md:self-center px-4 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs font-bold hover:bg-red-50 hover:text-red-500 transition-colors flex items-center gap-2"
+                            className="self-start md:self-center px-4 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs font-bold hover:bg-cyan-50 hover:text-cyan-500 transition-colors flex items-center gap-2"
                         >
-                            <Trash2 size={14} /> Clear All
+                            <Trash2 size={14} /> {t("wishlist.clearAll")}
                         </button>
                     )}
                 </div>
@@ -83,16 +85,16 @@ const WishlistPage: React.FC = () => {
                             <Heart className="text-rose-400" size={32} />
                         </div>
                         <h3 className="text-xl font-black text-slate-900 mb-2">
-                            Your wishlist is empty
+                            {t("wishlist.emptyTitle")}
                         </h3>
                         <p className="text-slate-400 text-sm mb-8 max-w-xs mx-auto">
-                            You haven't saved any items yet. Browse our fresh collection and find something you love!
+                            {t("wishlist.emptyDescription")}
                         </p>
                         <Link
                             to="/products"
                             className="inline-flex items-center gap-2 px-8 py-3.5 bg-rose-600 text-white rounded-2xl font-bold text-sm hover:bg-rose-700 hover:shadow-lg hover:shadow-rose-500/20 transition-all active:scale-95"
                         >
-                            Explore Products <ArrowRight size={16} />
+                            {t("wishlist.explore")} <ArrowRight size={16} />
                         </Link>
                     </div>
                 ) : (
@@ -107,8 +109,8 @@ const WishlistPage: React.FC = () => {
                             >
                                 <button
                                     onClick={() => removeFromWishlist(product.id)}
-                                    className="absolute top-6 right-6 z-10 w-8 h-8 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shadow-sm"
-                                    title="Remove from wishlist"
+                                    className="absolute top-6 right-6 z-10 w-8 h-8 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 transition-colors shadow-sm"
+                                    title={t("wishlist.removeTitle")}
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -124,7 +126,7 @@ const WishlistPage: React.FC = () => {
                                         {!product.is_available && (
                                             <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-10">
                                                 <span className="px-3 py-1 bg-black text-white text-[10px] font-black uppercase tracking-widest -rotate-6">
-                                                    Out of Stock
+                                                    {t("wishlist.outOfStock")}
                                                 </span>
                                             </div>
                                         )}
@@ -142,11 +144,11 @@ const WishlistPage: React.FC = () => {
                                         <div className="flex items-center justify-between pt-2">
                                             {product.discount_price ? (
                                                 <div className="flex flex-col leading-none">
-                                                    <span className="text-[10px] text-slate-400 line-through">AED {product.price}</span>
-                                                    <span className="text-lg font-black text-slate-900">AED {product.discount_price}</span>
+                                                    <span className="text-[10px] text-slate-400 line-through">AED {Number(product.price).toFixed(2)}</span>
+                                                    <span className="text-lg font-black text-slate-900">AED {Number(product.discount_price).toFixed(2)}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-lg font-black text-slate-900">AED {product.price}</span>
+                                                <span className="text-lg font-black text-slate-900">AED {Number(product.price).toFixed(2)}</span>
                                             )}
 
                                             <div

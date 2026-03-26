@@ -5,8 +5,6 @@ import type { ReviewsQuery } from "./reviewsApi";
 
 type Status = "idle" | "loading" | "succeeded" | "failed";
 
-export type ReviewStatus = "Approved" | "Pending" | "Rejected";
-
 export interface Review {
     id: number;
     productId: number;
@@ -14,9 +12,9 @@ export interface Review {
     userId: number;
     userName: string;
     rating: number;
-    title: string;
     comment: string;
-    status: ReviewStatus;
+    isVisible: boolean;
+    adminResponse: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -72,6 +70,20 @@ const reviewsSlice = createSlice({
         },
         setSelectedReviewId: (state, action: PayloadAction<number | null>) => {
             state.selectedId = action.payload;
+        },
+        updateReviewResponse: (
+            state,
+            action: PayloadAction<{ id: number; adminResponse: string | null; updatedAt?: string }>
+        ) => {
+            state.items = state.items.map((it) =>
+                it.id === action.payload.id
+                    ? {
+                          ...it,
+                          adminResponse: action.payload.adminResponse,
+                          updatedAt: action.payload.updatedAt || it.updatedAt,
+                      }
+                    : it
+            );
         },
     },
 });

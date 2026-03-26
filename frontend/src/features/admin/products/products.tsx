@@ -173,45 +173,50 @@ const ProductManagement: React.FC = () => {
         let result = products;
         if (minPrice) {
             const min = parseFloat(minPrice);
-            if (!isNaN(min)) result = result.filter((p) => p.finalPrice >= min);
+            if (!isNaN(min)) result = result.filter((p: Product) => p.finalPrice >= min);
         }
         if (maxPrice) {
             const max = parseFloat(maxPrice);
-            if (!isNaN(max)) result = result.filter((p) => p.finalPrice <= max);
+            if (!isNaN(max)) result = result.filter((p: Product) => p.finalPrice <= max);
         }
         if (minStock) {
             const min = parseInt(minStock);
-            if (!isNaN(min)) result = result.filter((p) => p.stock >= min);
+            if (!isNaN(min)) result = result.filter((p: Product) => p.stock >= min);
         }
         if (maxStock) {
             const max = parseInt(maxStock);
-            if (!isNaN(max)) result = result.filter((p) => p.stock <= max);
+            if (!isNaN(max)) result = result.filter((p: Product) => p.stock <= max);
         }
         if (skuFilter) {
-            result = result.filter((p) =>
+            result = result.filter((p: Product) =>
                 p.sku.toLowerCase().includes(skuFilter.toLowerCase())
             );
         }
         if (ratingFilter) {
             const minRating = parseFloat(ratingFilter);
-            if (!isNaN(minRating)) result = result.filter((p) => p.averageRating >= minRating);
+            if (!isNaN(minRating)) result = result.filter((p: Product) => p.averageRating >= minRating);
         }
         if (deliveryTimeFilter) {
-            result = result.filter((p) =>
+            result = result.filter((p: Product) =>
                 p.expectedDeliveryTime?.toLowerCase().includes(deliveryTimeFilter.toLowerCase())
             );
         }
         return result;
     }, [products, minPrice, maxPrice, minStock, maxStock, skuFilter, ratingFilter, deliveryTimeFilter]);
 
-    // Unique categories From data for dropdown
-    const uniqueCategories = useMemo(() =>
-        [...new Set(products.map((p) => p.categoryName).filter(Boolean))],
-        [products]
-    );
+    // Unique categories From data for dropdown (id + name pairs)
+    const uniqueCategories = useMemo(() => {
+        const seen = new Map<number, string>();
+        products.forEach((p: Product) => {
+            if (p.categoryId && p.categoryName && !seen.has(p.categoryId)) {
+                seen.set(p.categoryId, p.categoryName);
+            }
+        });
+        return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+    }, [products]);
 
     const selectedProduct = useMemo(
-        () => filteredProducts.find((p) => p.id === selectedProductId) ?? null,
+        () => filteredProducts.find((p: Product) => p.id === selectedProductId) ?? null,
         [filteredProducts, selectedProductId]
     );
 
@@ -224,7 +229,7 @@ const ProductManagement: React.FC = () => {
     // Export handler
     const handleExport = () => {
         const headers = ["ID", "Name", "Category", "Price", "Stock", "Status", "SKU", "Rating"];
-        const rows = filteredProducts.map(p => [
+        const rows = filteredProducts.map((p: Product) => [
             p.id,
             p.name,
             p.categoryName,
@@ -236,7 +241,7 @@ const ProductManagement: React.FC = () => {
         ]);
         const csvContent = [
             headers.join(","),
-            ...rows.map(r => r.map(c => {
+            ...rows.map((r: (string | number | null)[]) => r.map((c: string | number | null) => {
                 const val = String(c || "");
                 return val.includes(',') ? `"${val}"` : val;
             }).join(","))
@@ -253,9 +258,9 @@ const ProductManagement: React.FC = () => {
     };
 
     // Compute stats from current page data
-    const activeCount = filteredProducts.filter((p) => p.status === "Active").length;
-    const outOfStockCount = filteredProducts.filter((p) => p.status === "Out of Stock").length;
-    const lowStockCount = filteredProducts.filter((p) => p.stock > 0 && p.stock <= 20).length;
+    const activeCount = filteredProducts.filter((p: Product) => p.status === "Active").length;
+    const outOfStockCount = filteredProducts.filter((p: Product) => p.status === "Out of Stock").length;
+    const lowStockCount = filteredProducts.filter((p: Product) => p.stock > 0 && p.stock <= 20).length;
 
     return (
         <div className="min-h-screen w-full space-y-6 text-[#18181B] bg-[#FDFDFD]">
@@ -415,7 +420,7 @@ const ProductManagement: React.FC = () => {
                                                     type="text"
                                                     placeholder="Filter name..."
                                                     value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                                                     className="w-full pl-7 pr-2 py-2 bg-[#F9F9F9] border border-transparent rounded-md text-[11px] outline-none focus:bg-white focus:border-[#EEEEEE]"
                                                 />
                                             </div>
@@ -425,7 +430,7 @@ const ProductManagement: React.FC = () => {
                                         <td className="px-6 py-3">
                                             <select
                                                 value={statusFilter}
-                                                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                                                onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setPage(1); }}
                                                 className="w-full p-2 bg-[#F9F9F9] border border-transparent rounded-md text-[11px] outline-none cursor-pointer focus:bg-white focus:border-[#EEEEEE]"
                                             >
                                                 <option value="All">All Status</option>
@@ -439,12 +444,12 @@ const ProductManagement: React.FC = () => {
                                         <td className="px-6 py-3">
                                             <select
                                                 value={categoryFilter}
-                                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
                                                 className="w-full p-2 bg-[#F9F9F9] border border-transparent rounded-md text-[11px] outline-none cursor-pointer focus:bg-white focus:border-[#EEEEEE]"
                                             >
                                                 <option value="">All Categories</option>
                                                 {uniqueCategories.map((cat) => (
-                                                    <option key={cat} value={cat}>{cat}</option>
+                                                    <option key={cat.id} value={String(cat.id)}>{cat.name}</option>
                                                 ))}
                                             </select>
                                         </td>
@@ -553,8 +558,16 @@ const ProductManagement: React.FC = () => {
                                     </tr>
                                 ))
                             ) : (
-                                filteredProducts.map((p, index) => (
-                                    <tr key={p.id} className="group hover:bg-[#FBFBFA] transition-colors">
+                                filteredProducts.map((p: Product, index: number) => (
+                                    <tr
+                                        key={p.id}
+                                        className="group hover:bg-[#FBFBFA] transition-colors cursor-pointer"
+                                        onClick={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            if (target.closest("button, a, input, [role='button']")) return;
+                                            navigate(`/admin/products/${p.id}`);
+                                        }}
+                                    >
                                         {isVisible("index") && (
                                             <td className="px-6 py-4 text-xs font-mono text-[#A1A1AA] text-center">
                                                 {(page - 1) * limit + index + 1}
@@ -686,7 +699,7 @@ const ProductManagement: React.FC = () => {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button
-                                                        onClick={() => dispatch(productsActions.setSelectedProductId(p.id))}
+                                                        onClick={() => navigate(`/admin/products/${p.id}`)}
                                                         className="p-2 text-[#A1A1AA] hover:text-white hover:bg-black rounded-lg transition-all"
                                                         title="View Details"
                                                     >
@@ -909,6 +922,77 @@ const ProductDetailPanel = ({
                         <div className="space-y-3">
                             <h4 className="text-[10px] font-bold uppercase text-[#A1A1AA] tracking-widest">Description</h4>
                             <p className="text-sm text-[#52525B] leading-relaxed">{product.description}</p>
+                        </div>
+                    )}
+
+                    {/* Videos */}
+                    {product.videos && product.videos.length > 0 && (
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase text-[#A1A1AA] tracking-widest">Videos</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                                {product.videos.map((vid) => (
+                                    <div key={vid.id} className="aspect-video rounded-lg overflow-hidden border border-[#EEEEEE] relative bg-slate-100 flex items-center justify-center">
+                                        <video src={vid.url} controls className="max-w-full max-h-full" />
+                                        {vid.title && (
+                                            <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded-full truncate max-w-[90%]">
+                                                {vid.title}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Discount Tiers */}
+                    {product.discountTiers && product.discountTiers.length > 0 && (
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase text-[#A1A1AA] tracking-widest">Discount Tiers</h4>
+                            <div className="border border-[#EEEEEE] rounded-xl overflow-hidden">
+                                <table className="w-full text-left text-xs text-[#52525B]">
+                                    <thead className="bg-[#FAFAFA] border-b border-[#EEEEEE] text-[10px] font-bold text-[#A1A1AA] uppercase">
+                                        <tr>
+                                            <th className="px-4 py-2">Min Quantity</th>
+                                            <th className="px-4 py-2">Discount Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#EEEEEE]">
+                                        {product.discountTiers.map((tier, i) => (
+                                            <tr key={tier.id || i} className="hover:bg-[#FBFBFA]">
+                                                <td className="px-4 py-2 font-medium">{tier.minQuantity}</td>
+                                                <td className="px-4 py-2 font-bold text-emerald-600">AED {tier.discountPrice.toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delivery Tiers */}
+                    {product.deliveryTiers && product.deliveryTiers.length > 0 && (
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold uppercase text-[#A1A1AA] tracking-widest">Delivery Tiers</h4>
+                            <div className="border border-[#EEEEEE] rounded-xl overflow-hidden">
+                                <table className="w-full text-left text-xs text-[#52525B]">
+                                    <thead className="bg-[#FAFAFA] border-b border-[#EEEEEE] text-[10px] font-bold text-[#A1A1AA] uppercase">
+                                        <tr>
+                                            <th className="px-4 py-2">Name</th>
+                                            <th className="px-4 py-2">Cost</th>
+                                            <th className="px-4 py-2">Est. Days</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#EEEEEE]">
+                                        {product.deliveryTiers.map((tier, i) => (
+                                            <tr key={tier.id || i} className="hover:bg-[#FBFBFA]">
+                                                <td className="px-4 py-2 font-medium">{tier.name}</td>
+                                                <td className="px-4 py-2">AED {tier.cost.toLocaleString()}</td>
+                                                <td className="px-4 py-2 text-[#A1A1AA]">{tier.estimatedDays}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>

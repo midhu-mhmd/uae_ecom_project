@@ -27,6 +27,7 @@ interface ProductFormData {
     slug: string;
     description: string;
     category: string;
+    unit: string;
     price: string;
     discount_price: string;
     stock: number;
@@ -98,6 +99,7 @@ const AddProduct: React.FC = () => {
             is_available: true,
             stock: 0,
             slug: "",
+            unit: "",
             expected_delivery_time: "",
             discount_price: "",
             sku: "",
@@ -184,6 +186,7 @@ const AddProduct: React.FC = () => {
         if (data.slug) fd.append("slug", data.slug);
         fd.append("description", data.description);
         fd.append("category", String(data.category));
+        if (data.unit) fd.append("unit", data.unit);
         fd.append("price", data.price);
         if (data.discount_price) fd.append("discount_price", data.discount_price);
         fd.append("stock", String(data.stock));
@@ -268,17 +271,43 @@ const AddProduct: React.FC = () => {
                         </p>
                     </div>
                 </div>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/admin/products")}
+                        className="px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all active:scale-95"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        form="add-product-form"
+                        disabled={status === "loading"}
+                        className="group relative px-7 py-2.5 bg-black hover:bg-zinc-900 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-black/20 disabled:opacity-50 flex items-center gap-2.5 transition-all active:scale-95 border border-white/10"
+                    >
+                        {status === "loading" ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <Save size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
+                        )}
+                        <span className="relative">
+                            {status === "loading" ? "Creating..." : "Create Product"}
+                        </span>
+                    </button>
+                </div>
             </div>
 
             {/* ERROR */}
             {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium">
+                <div className="bg-cyan-50 text-cyan-600 p-4 rounded-xl text-sm font-medium">
                     {error}
                 </div>
             )}
 
             {/* ───── FORM ───── */}
             <form
+                id="add-product-form"
                 onSubmit={handleSubmit(onSubmit)}
                 className="max-w-4xl mx-auto space-y-8"
             >
@@ -388,11 +417,23 @@ const AddProduct: React.FC = () => {
                             </p>
                         </Field>
 
-                        <Field label="Unit / SKU">
+                        <Field label="Unit" error={errors.unit?.message}>
+                            <select
+                                {...register("unit", { required: "Unit is required" })}
+                                className={inputClass}
+                            >
+                                <option value="">— Select unit —</option>
+                                <option value="piece">Piece</option>
+                                <option value="kg">Kg</option>
+                                <option value="Gram">100g</option>
+                            </select>
+                        </Field>
+
+                        <Field label="SKU">
                             <input
                                 {...register("sku")}
                                 className={inputClass}
-                                placeholder="e.g. FISH-001"
+                                placeholder="e.g., FISH-001"
                             />
                         </Field>
                     </div>
@@ -634,33 +675,7 @@ const AddProduct: React.FC = () => {
                     </div>
                 </Section>
 
-                {/* ─── Actions ─── */}
-                <div className="flex items-center justify-end gap-4 pt-4 pb-12">
-                    <button
-                        type="button"
-                        onClick={() => navigate("/admin/products")}
-                        className="px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#F4F4F5] transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={status === "loading"}
-                        className="px-8 py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-[#222] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-xl"
-                    >
-                        {status === "loading" ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                Creating...
-                            </>
-                        ) : (
-                            <>
-                                <Save size={16} />
-                                Create Product
-                            </>
-                        )}
-                    </button>
-                </div>
+
             </form>
         </div>
     );
@@ -695,7 +710,7 @@ const Field = ({
     <div className="space-y-2">
         <label className={labelClass}>{label}</label>
         {children}
-        {error && <p className="text-red-500 text-xs">{error}</p>}
+        {error && <p className="text-cyan-500 text-xs">{error}</p>}
     </div>
 );
 

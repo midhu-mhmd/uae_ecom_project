@@ -6,14 +6,12 @@ import type { OrdersQuery } from "./ordersApi";
 type Status = "idle" | "loading" | "succeeded" | "failed";
 
 export type OrderStatus =
-    | "Pending"
-    | "Confirmed"
-    | "Processing"
-    | "Shipped"
-    | "Delivered"
-    | "Cancelled"
-    | "Returned"
-    | "Paid";
+    | "PENDING"
+    | "PAID"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED";
 
 export type PaymentStatus = "Paid" | "Pending" | "Refunded" | "Failed" | "Success";
 
@@ -122,7 +120,7 @@ const ordersSlice = createSlice({
         },
 
         /* ── Update Order Status ── */
-        updateStatusRequest: (state, _action: PayloadAction<{ id: number; status: OrderStatus }>) => {
+        updateStatusRequest: (state, _action: PayloadAction<{ id: number; status: OrderStatus; notes?: string }>) => {
             state.status = "loading";
             state.error = null;
         },

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
     Tag,
     Copy,
@@ -9,105 +9,175 @@ import {
     Percent,
     Truck,
     ArrowRight,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
-
-/* ── Offers Data ── */
-const offers = [
-    {
-        id: 1,
-        badge: "NEW USER",
-        title: "Flat AED 200 Off",
-        subtitle: "On your first order above AED 799",
-        code: "FRESHSTART",
-        gradient: "bg-red-600",
-        glow: "bg-red-500/20",
-        icon: <Gift size={20} />,
-        expiry: "No expiry",
-        terms: "Min order AED 799 • First order only",
-    },
-    {
-        id: 2,
-        badge: "WEEKEND",
-        title: "Buy 2 Get 1 Free",
-        subtitle: "On all Prawns & Shrimp varieties",
-        code: "PRAWN3",
-        gradient: "bg-yellow-500",
-        glow: "bg-yellow-500/20",
-        icon: <Zap size={20} />,
-        expiry: "Sat & Sun only",
-        terms: "Same variety • Max 3 free/order",
-    },
-    {
-        id: 3,
-        badge: "FREE DELIVERY",
-        title: "Free Shipping",
-        subtitle: "On all orders above AED 999",
-        code: "FREEFISH",
-        gradient: "bg-red-800",
-        glow: "bg-red-500/20",
-        icon: <Truck size={20} />,
-        expiry: "This month",
-        terms: "Applicable for standard delivery",
-    },
-    {
-        id: 4,
-        badge: "COMBO DEAL",
-        title: "Seafood Party Pack",
-        subtitle: "Pomfret + Prawns + Surmai at 30% off",
-        code: "PARTY30",
-        gradient: "bg-yellow-600",
-        glow: "bg-yellow-500/20",
-        icon: <Percent size={20} />,
-        expiry: "Limited stock",
-        terms: "While supplies last • Cannot combine",
-    },
-];
-
-/* ── Banner ── */
-const bannerOffer = {
-    title: "🦐 Mega Seafood Sale — Up to 40% Off!",
-    subtitle: "Fresh catches at unbeatable prices. This weekend only.",
-    cta: "Shop the Sale",
-    gradient: "bg-red-950",
-};
+import { useTranslation } from "react-i18next";
+import { type BannerDto } from "../../features/admin/banners/bannerApi";
+import { useBanners } from "../../hooks/queries";
 
 /* ── Component ── */
 const OffersSection: React.FC = () => {
+    const { t } = useTranslation("home");
+    // ✅ TanStack Query — shared banner cache with Hero
+    const { data: allBanners, isLoading: loading } = useBanners();
+
+    const offerCards = useMemo(() => {
+        if (!allBanners) return [] as BannerDto[];
+        return allBanners.filter(b => b.position === 'home_offer_card');
+    }, [allBanners]);
+
+    const promoBanner = useMemo(() => {
+        if (!allBanners) return null;
+        return allBanners.find(b => b.position === 'home_promo_banner') || null;
+    }, [allBanners]);
+
+    // Merge API data with icons and styles from existing mocks
+    const displayOffers = useMemo(() => {
+        if (offerCards.length > 0) {
+            const icons = [<Gift size={20} />, <Zap size={20} />, <Truck size={20} />, <Percent size={20} />];
+            const gradients = ["bg-cyan-600", "bg-yellow-500", "bg-cyan-800", "bg-yellow-600"];
+            const glows = ["bg-cyan-500/20", "bg-yellow-500/20", "bg-cyan-500/20", "bg-yellow-500/20"];
+
+            return offerCards.map((b: BannerDto, i: number) => ({
+                id: b.id,
+                badge: b.tag || t(`offers.list.${i}.badge`),
+                title: b.title || t(`offers.list.${i}.title`),
+                subtitle: b.subtitle || t(`offers.list.${i}.subtitle`),
+                code: b.cta_text || "OFFER", // Using cta_text as coupon code for now
+                gradient: gradients[i % gradients.length],
+                glow: glows[i % glows.length],
+                icon: icons[i % icons.length],
+                expiry: b.highlight || t(`offers.list.${i}.expiry`),
+                terms: t(`offers.list.${i}.terms`),
+                image: b.desktop_image || b.image || null, // Capture image from API
+            }));
+        }
+
+        return [];
+    }, [offerCards, t]);
+
+    const displayPromo = {
+        title: promoBanner?.title || t("offers.bannerTitle"),
+        subtitle: promoBanner?.subtitle || t("offers.bannerSubtitle"),
+        cta: promoBanner?.cta_text || t("offers.bannerCTA"),
+        cta_link: promoBanner?.cta_link,
+        image: promoBanner?.desktop_image || promoBanner?.image || null,
+        gradient: "bg-cyan-950",
+    };
+
+    // ✅ Slider Navigation Logic
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(true);
+
+    const handleScroll = () => {
+        if (scrollRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+            setCanScrollLeft(scrollLeft > 0);
+            setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth);
+        }
+    };
+
+    useEffect(() => {
+        handleScroll();
+        window.addEventListener("resize", handleScroll);
+        return () => window.removeEventListener("resize", handleScroll);
+    }, [displayOffers]);
+
+    const scroll = (direction: "left" | "right") => {
+        if (scrollRef.current) {
+            const { clientWidth } = scrollRef.current;
+            // Scroll by slightly less than full width to peek at the next card
+            const scrollAmount = direction === "left" ? -clientWidth + 40 : clientWidth - 40;
+            scrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+        }
+    };
+
     return (
-        <section className="relative bg-[#FAFAF8] py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <section className="relative bg-[#FAFAF8] py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
             {/* Decorative */}
-            <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-red-50/50 rounded-full blur-3xl" />
+            <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-50/50 rounded-full blur-3xl" />
 
             <div className="relative mx-auto max-w-7xl">
                 {/* Header */}
-                <div className="text-center mb-14">
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full mb-4">
-                        <Tag size={14} className="text-red-500" />
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-red-600">
-                            Deals & Offers
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-cyan-50 border border-cyan-100 rounded-full mb-4">
+                        <Tag size={14} className="text-cyan-500" />
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-cyan-600">
+                            {t("offers.kicker")}
                         </span>
                     </div>
                     <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 tracking-tight">
-                        Save Big on{" "}
-                        <span className="text-red-600">
-                            Fresh Catches
+                        {t("offers.title")}{" "}
+                        <span className="text-cyan-600">
+                            {t("offers.titleHighlight")}
                         </span>
                     </h2>
                     <p className="mt-3 text-zinc-500 text-sm max-w-md mx-auto">
-                        Grab these exclusive deals before they swim away. Use the codes at checkout.
+                        {t("offers.subtitle")}
                     </p>
                 </div>
 
-                {/* Offer Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-                    {offers.map((offer, i) => (
-                        <OfferCard key={offer.id} offer={offer} index={i} />
-                    ))}
-                </div>
+                {/* Skeleton Loader */}
+                {loading && (
+                    <div className="flex lg:grid lg:grid-cols-4 gap-5 overflow-hidden pb-6 px-1 -mx-1">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="w-[85vw] sm:w-[320px] lg:w-auto shrink-0 h-64 bg-zinc-100 rounded-2xl animate-pulse" />
+                        ))}
+                    </div>
+                )}
+
+                {/* Offer Cards Slider / Grid */}
+                {!loading && displayOffers.length > 0 && (
+                    <div className="relative group/slider">
+                        
+                        {/* ✅ Left Arrow (Hidden on Desktop grid) */}
+                        {canScrollLeft && (
+                            <button
+                                onClick={() => scroll("left")}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2.5 bg-white/90 backdrop-blur-sm shadow-lg rounded-full text-zinc-600 hover:text-cyan-600 hover:bg-white hover:scale-110 active:scale-95 transition-all lg:hidden"
+                                aria-label="Scroll left"
+                            >
+                                <ChevronLeft size={20} className="rtl-flip" />
+                            </button>
+                        )}
+
+                        {/* ✅ Right Arrow (Hidden on Desktop grid) */}
+                        {canScrollRight && (
+                            <button
+                                onClick={() => scroll("right")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2.5 bg-white/90 backdrop-blur-sm shadow-lg rounded-full text-zinc-600 hover:text-cyan-600 hover:bg-white hover:scale-110 active:scale-95 transition-all lg:hidden"
+                                aria-label="Scroll right"
+                            >
+                                <ChevronRight size={20} className="rtl-flip" />
+                            </button>
+                        )}
+
+                        <div 
+                            ref={scrollRef}
+                            onScroll={handleScroll}
+                            className="flex lg:grid lg:grid-cols-4 gap-5 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-6 px-1 -mx-1"
+                            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        >
+                            {displayOffers.map((offer, i) => (
+                                <OfferCard 
+                                    key={offer.id} 
+                                    offer={offer as any} 
+                                    index={i} 
+                                    className="w-[85vw] sm:w-[320px] lg:w-auto shrink-0 snap-center lg:snap-align-none" 
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Banner CTA */}
-                <BannerCTA />
+                {!loading && displayPromo.title && <BannerCTA bannerOffer={displayPromo} />}
             </div>
+
+            {/* Hide scrollbar CSS */}
+            <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
         </section>
     );
 };
@@ -124,9 +194,11 @@ interface Offer {
     icon: React.ReactNode;
     expiry: string;
     terms: string;
+    image: string | null;
 }
 
-const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) => {
+const OfferCard: React.FC<{ offer: Offer; index: number; className?: string }> = ({ offer, index, className = "" }) => {
+    const { t } = useTranslation("home");
     const ref = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -148,7 +220,6 @@ const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) 
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            // fallback
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
@@ -157,30 +228,47 @@ const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) 
     return (
         <div
             ref={ref}
-            className={`group relative bg-white border border-zinc-100 rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-500 cursor-default ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-                }`}
+            className={`group relative bg-white border border-zinc-100 rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-500 cursor-default ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            } ${className}`}
             style={{ transitionDelay: `${index * 80}ms` }}
         >
             {/* Top gradient strip */}
             <div className={`h-1.5 ${offer.gradient}`} />
 
-            <div className="p-5">
+            {/* Optional Banner Image via API */}
+            {offer.image && (
+                <div className="w-full h-32 bg-slate-100 overflow-hidden shrink-0">
+                    <img
+                        src={offer.image}
+                        alt={offer.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                </div>
+            )}
+
+            <div className="p-5 flex flex-col items-center text-center sm:items-start sm:text-left h-full">
                 {/* Badge + Icon */}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center justify-center sm:justify-between w-full mb-4">
                     <span className={`px-2.5 py-1 ${offer.gradient} text-white rounded-lg text-[9px] font-bold uppercase tracking-wider`}>
                         {offer.badge}
                     </span>
-                    <div className={`p-2 rounded-xl ${offer.glow} transition-transform group-hover:scale-110 duration-300`}>
+                    <div className={`hidden sm:block p-2 rounded-xl ${offer.glow} transition-transform group-hover:scale-110 duration-300`}>
                         {offer.icon}
                     </div>
+                </div>
+
+                {/* Mobile Icon (centered) */}
+                <div className={`sm:hidden p-3 rounded-2xl ${offer.glow} mb-4`}>
+                    {offer.icon}
                 </div>
 
                 {/* Title */}
                 <h3 className="text-lg font-extrabold text-zinc-900 mb-1">{offer.title}</h3>
                 <p className="text-xs text-zinc-500 mb-4 leading-relaxed">{offer.subtitle}</p>
 
-                {/* Coupon Code */}
-                <div className="flex items-center gap-2 mb-4">
+                {/* Coupon Code (Pushed to bottom using mt-auto if container expands) */}
+                <div className="flex items-center gap-2 mb-4 w-full mt-auto">
                     <div className="flex-1 px-3 py-2.5 bg-zinc-50 border border-dashed border-zinc-300 rounded-xl flex items-center justify-between">
                         <span className="text-xs font-mono font-bold text-zinc-700 tracking-wider">
                             {offer.code}
@@ -188,10 +276,10 @@ const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) 
                         <button
                             onClick={handleCopy}
                             className="p-1 hover:bg-zinc-200 rounded-md transition-colors"
-                            title="Copy code"
+                            title={t("offers.copyCode")}
                         >
                             {copied ? (
-                                <Check size={14} className="text-red-600" />
+                                <Check size={14} className="text-cyan-600" />
                             ) : (
                                 <Copy size={14} className="text-zinc-400" />
                             )}
@@ -200,7 +288,7 @@ const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) 
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+                <div className="flex items-center justify-between pt-3 border-t border-zinc-100 w-full">
                     <div className="flex items-center gap-1 text-zinc-400">
                         <Clock size={11} />
                         <span className="text-[10px] font-medium">{offer.expiry}</span>
@@ -213,7 +301,7 @@ const OfferCard: React.FC<{ offer: Offer; index: number }> = ({ offer, index }) 
 };
 
 /* ── Banner CTA ── */
-const BannerCTA: React.FC = () => {
+const BannerCTA: React.FC<{ bannerOffer: any }> = ({ bannerOffer }) => {
     const ref = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
 
@@ -231,8 +319,9 @@ const BannerCTA: React.FC = () => {
     return (
         <div
             ref={ref}
-            className={`relative rounded-3xl ${bannerOffer.gradient} overflow-hidden transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-                }`}
+            className={`relative rounded-3xl ${bannerOffer.gradient} overflow-hidden transition-all duration-700 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
         >
             {/* Glow effects */}
             <div className="absolute -top-20 left-1/4 w-60 h-60 bg-orange-500/10 rounded-full blur-3xl" />
@@ -248,14 +337,28 @@ const BannerCTA: React.FC = () => {
                 />
             </div>
 
-            <div className="relative flex flex-col sm:flex-row items-center justify-between p-8 sm:p-12 gap-6">
+            {/* Optional Banner Image from API */}
+            {bannerOffer.image && (
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={bannerOffer.image}
+                        alt={bannerOffer.title}
+                        className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+                    />
+                </div>
+            )}
+
+            <div className="relative flex flex-col sm:flex-row items-center justify-between p-8 sm:p-12 gap-6 z-10 text-center sm:text-left">
                 <div>
                     <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-2">
                         {bannerOffer.title}
                     </h3>
                     <p className="text-sm text-zinc-400">{bannerOffer.subtitle}</p>
                 </div>
-                <button className="group flex items-center gap-2 px-8 py-3.5 bg-white text-red-900 rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:bg-zinc-50 transition-all duration-300 active:scale-[0.98] shrink-0">
+                <button
+                    onClick={() => bannerOffer.cta_link && (window.location.href = bannerOffer.cta_link)}
+                    className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-cyan-900 rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:bg-zinc-50 transition-all duration-300 active:scale-[0.98] shrink-0 w-full sm:w-auto"
+                >
                     {bannerOffer.cta}
                     <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
                 </button>

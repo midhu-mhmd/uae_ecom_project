@@ -19,6 +19,7 @@ function mapUserDtoToCustomer(dto: UserDto): Customer {
     phone: dto.phone_number || "",
     role: dto.role,
     status: dto.is_active ? "Active" : "Blocked",
+    isDeleted: !!dto.deleted_at,
     isEmailVerified: dto.is_email_verified,
     isPhoneVerified: dto.is_phone_verified,
     googleLinked: !!dto.google_id,
@@ -32,6 +33,7 @@ function mapUserDtoToCustomer(dto: UserDto): Customer {
     createdAt: dto.created_at,
     updatedAt: dto.updated_at,
     deletedAt: dto.deleted_at,
+    addresses: dto.addresses ?? [],
   };
 }
 
@@ -45,6 +47,7 @@ function normalizeCustomers(payload: any): Customer[] {
   return [];
 }
 
+/* ── Fetch customers (supports showDeleted toggle) ── */
 function* fetchCustomersWorker(
   action: ReturnType<typeof customersActions.fetchCustomersRequest>
 ): SagaIterator {
@@ -56,7 +59,12 @@ function* fetchCustomersWorker(
       return;
     }
 
-    const raw: any = yield call(customersApi.list, action.payload);
+    const showDeleted: boolean = yield select(
+      (state: RootState) => (state as any).customers?.showDeleted ?? false
+    );
+
+    const fetcher = showDeleted ? customersApi.listAll : customersApi.list;
+    const raw: any = yield call(fetcher, action.payload);
     const totalCount = raw?.count || 0;
     const items = normalizeCustomers(raw);
     const page = action.payload?.page || 1;
@@ -85,7 +93,58 @@ function* fetchCustomersWorker(
   }
 }
 
-function* retryCustomersOnAuth(): SagaIterator {
+/* ── Generic action worker (block, unblock, delete, restore, set-role) ── */
+function* actionWorker(
+  action: ReturnType<typeof customersActions.actionRequest>
+): SagaIterator {
+  const { type: actionType, id, payload: actionPayload } = action.payload;
+
+  try {
+    switch (actionType) {
+      case "block":
+        yield call(customersApi.blockUser, id);
+        break;
+      case "unblock":
+        yield call(customersApi.unblockUser, id);
+        break;
+      case "softDelete":
+        yield call(customersApi.softDelete, id);
+        break;
+      case "restore":
+        yield call(customersApi.restore, id);
+        break;
+      case "setRole":
+        yield call(customersApi.setRole, id, actionPayload?.role);
+        break;
+      default:
+        throw new Error(`Unknown action type: ${actionType}`);
+    }
+
+    yield put(customersActions.actionSuccess(actionType));
+
+    // Re-fetch list so table updates
+    const lastQuery: any = yield select(
+      (state: RootState) => (state as any).customers?.lastQuery
+    );
+    yield put(customersActions.fetchCustomersRequest(lastQuery ?? undefined));
+  } catch (e: any) {
+    console.error(`Customer action "${actionType}" failed:`, e);
+    const errMsg =
+      e?.response?.data?.detail ||
+      e?.response?.data?.message ||
+      e?.message ||
+      `Failed to ${actionType} user`;
+    yield put(customersActions.actionFailure(errMsg));
+  }
+}
+
+/* ── Re-fetch after auth (admin only) ── */
+function* retryCustomersOnAuth(action: ReturnType<typeof setUser>): SagaIterator {
+  // Only fetch customers list for admin users
+  const user = action.payload;
+  const isAdmin = user?.role === "admin" || user?.is_admin === true;
+  if (!isAdmin) return;
+
   const lastQuery: any = yield select(
     (state: RootState) => (state as any).customers?.lastQuery
   );
@@ -95,5 +154,6 @@ function* retryCustomersOnAuth(): SagaIterator {
 
 export function* customersSaga(): SagaIterator {
   yield takeLatest(customersActions.fetchCustomersRequest.type, fetchCustomersWorker);
+  yield takeLatest(customersActions.actionRequest.type, actionWorker);
   yield takeEvery(setUser.type, retryCustomersOnAuth);
 }

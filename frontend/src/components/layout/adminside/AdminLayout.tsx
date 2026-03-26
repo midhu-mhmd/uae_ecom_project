@@ -11,15 +11,18 @@ import {
   CreditCard,
   Settings,
   Bell,
+  Headphones,
   ChevronLeft,
   ChevronRight,
-  ShoppingCart,
   Menu,
   X,
   LogOut,
-  ScanLine
+  ScanLine,
+  Image as BannersIcon
 } from 'lucide-react';
 import ScannerModal from './ScannerModal';
+import AdminNotificationsDropdown from '../../../features/admin/notifications/AdminNotificationsDropdown';
+
 
 interface NavItem {
   label: string;
@@ -55,11 +58,14 @@ const AdminLayout: React.FC = () => {
   const navigation: NavItem[] = [
     { label: 'Overview', path: '/admin/dashboard', icon: <LayoutDashboard size={18} strokeWidth={1.5} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingBag size={18} strokeWidth={1.5} /> },
-    { label: 'Carts', path: '/admin/cart', icon: <ShoppingCart size={18} strokeWidth={1.5} /> },
     { label: 'Products', path: '/admin/products', icon: <Package size={18} strokeWidth={1.5} /> },
+    { label: 'Categories', path: '/admin/categories', icon: <Package size={18} strokeWidth={1.5} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={18} strokeWidth={1.5} /> },
     { label: 'Reviews', path: '/admin/reviews', icon: <Star size={18} strokeWidth={1.5} /> },
     { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={18} strokeWidth={1.5} /> },
+    { label: 'Banners', path: '/admin/banners', icon: <BannersIcon size={18} strokeWidth={1.5} /> },
+    { label: 'Notifications', path: '/admin/notifications', icon: <Bell size={18} strokeWidth={1.5} /> },
+    { label: 'Support', path: '/admin/support', icon: <Headphones size={18} strokeWidth={1.5} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={18} strokeWidth={1.5} /> },
   ];
 
@@ -85,9 +91,9 @@ const AdminLayout: React.FC = () => {
       >
         <div className="h-20 flex items-center justify-between px-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-black flex items-center justify-center text-white font-mono font-bold text-sm">F</div>
+            <div className="w-8 h-8 bg-black flex items-center justify-center text-white font-mono font-bold text-sm">S</div>
             {(isSidebarOpen || isMobileMenuOpen) && (
-              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">FreshMa</span>
+              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">SIMAK FRESH</span>
             )}
           </div>
           <button
@@ -127,7 +133,7 @@ const AdminLayout: React.FC = () => {
         <div className="p-4 border-t border-[#EEEEEE] space-y-1">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-3 text-[#71717A] hover:text-red-600 transition-all rounded-md hover:bg-red-50"
+            className="w-full flex items-center gap-3 px-3 py-3 text-[#71717A] hover:text-cyan-600 transition-all rounded-md hover:bg-cyan-50"
           >
             <LogOut size={16} strokeWidth={1.5} />
             {(isSidebarOpen || isMobileMenuOpen) && <span className="text-xs font-semibold tracking-widest uppercase">Logout</span>}
@@ -159,10 +165,7 @@ const AdminLayout: React.FC = () => {
               <ScanLine size={18} strokeWidth={1.5} />
             </button>
 
-            <button className="text-[#A1A1AA] hover:text-black relative">
-              <Bell size={18} strokeWidth={1.5} />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-black rounded-full"></span>
-            </button>
+            <AdminNotificationsDropdown />
 
             <div className="flex items-center gap-3 border-l border-[#EEEEEE] pl-4 md:pl-6">
               <div className="text-right hidden md:block">

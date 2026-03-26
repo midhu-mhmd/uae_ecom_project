@@ -5,6 +5,7 @@ export interface OrderItemDto {
     id: number;
     product: number;
     product_name: string;
+    product_image: string | null;
     quantity: number;
     price: string;
     subtotal: string;
@@ -50,6 +51,35 @@ export interface StatusHistoryDto {
     created_at: string;
 }
 
+/* ── Dashboard Analytics DTO ── */
+export interface DashboardAnalyticsDto {
+    total_users: number;
+    active_users: number;
+    total_orders: number;
+    completed_orders: number;
+    total_revenue: string;
+    average_order_value: string;
+    cart_conversion_rate: number;
+    top_products: Array<{
+        id: number;
+        name: string;
+        sales: number;
+        revenue: string;
+    }>;
+}
+
+/* ── Delivery Estimation DTO ── */
+export interface DeliveryEstimationDto {
+    earliest_delivery_date: string;
+    max_delivery_days: number;
+    items_breakdown: Array<{
+        product_id: number;
+        product_name: string;
+        quantity: number;
+        delivery_days: number;
+    }>;
+}
+
 /* ── Order DTO from backend ── */
 export interface OrderDto {
     id: number;
@@ -87,6 +117,29 @@ export const ordersApi = {
         return res.data;
     },
 
+    /* ── Receipts (Success Payments Only) ── */
+    receiptImage: async (id: number): Promise<Blob> => {
+        const res = await api.get(`/orders/${id}/receipt_image/`, {
+            responseType: "blob",
+        } as any);
+        return res.data as Blob;
+    },
+
+    receiptPdf: async (id: number): Promise<Blob> => {
+        const res = await api.get(`/orders/${id}/receipt_pdf/`, {
+            responseType: "blob",
+        } as any);
+        return res.data as Blob;
+    },
+
+    /* ── Admin Delivery Details (All Orders) ── */
+    adminReceiptPdf: async (id: number): Promise<Blob> => {
+        const res = await api.get(`/orders/${id}/admin_receipt_pdf/`, {
+            responseType: "blob",
+        } as any);
+        return res.data as Blob;
+    },
+
     details: async (id: number): Promise<OrderDto> => {
         const res = await api.get<OrderDto>(`/orders/${id}/`);
         return res.data;
@@ -94,9 +147,13 @@ export const ordersApi = {
 
     updateStatus: async (
         id: number,
-        status: string
+        status: string,
+        notes?: string
     ): Promise<OrderDto> => {
-        const res = await api.patch<OrderDto>(`/orders/${id}/`, { status });
+        const res = await api.post<OrderDto>(`/orders/${id}/admin_update_status/`, {
+            status: status.toUpperCase(),
+            ...(notes ? { notes } : {}),
+        });
         return res.data;
     },
 
@@ -106,6 +163,36 @@ export const ordersApi = {
 
     create: async (data: any): Promise<OrderDto> => {
         const res = await api.post<OrderDto>("/orders/", data);
+        return res.data;
+    },
+
+    checkout: async (data: {
+        address_id: number;
+        payment_method: "COD" | "TELR";
+        preferred_delivery_date?: string;
+        preferred_delivery_slot?: string;
+        delivery_notes?: string;
+        tip_amount?: number;
+    }): Promise<{
+        message: string;
+        order_id: number;
+        total_amount: string;
+        payment_method: string;
+        payment_url?: string;
+    }> => {
+        const res = await api.post("/orders/checkout/", data);
+        return res.data;
+    },
+
+    /* ── Dashboard Analytics (Admin Only) ── */
+    getDashboardAnalytics: async (): Promise<DashboardAnalyticsDto> => {
+        const res = await api.get<DashboardAnalyticsDto>("/orders/dashboard_analytics/");
+        return res.data;
+    },
+
+    /* ── Delivery Estimation ── */
+    estimateDelivery: async (): Promise<DeliveryEstimationDto> => {
+        const res = await api.get<DeliveryEstimationDto>("/orders/estimate_delivery/");
         return res.data;
     },
 };
