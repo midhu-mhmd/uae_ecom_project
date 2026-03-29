@@ -1,5 +1,6 @@
 import React, {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -99,7 +100,6 @@ const COLUMNS: ColumnDef[] = [
 
 type StatusFilter = "All" | "Active" | "Blocked";
 type RoleFilter = "All" | "user" | "admin";
-const FETCH_ALL_USERS_LIMIT = 1000;
 
 /* ─────────────────────────────
    Memo Sub-components
@@ -871,6 +871,7 @@ const CustomerManagement: React.FC = () => {
   const [phoneFilter, setPhoneFilter] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const deferredSearchTerm = useDeferredValue(searchTerm.trim());
 
   // Prefill phone filter from URL ?phone= query
   useEffect(() => {
@@ -914,16 +915,30 @@ const CustomerManagement: React.FC = () => {
 
   const isVisible = useCallback((key: ColumnKey) => !!visibleColumns[key], [visibleColumns]);
 
-  // Fetch when params change (includes showDeleted)
+  const roleQueryValue = useMemo(() => {
+    if (roleFilter === "All") return undefined;
+    return roleFilter;
+  }, [roleFilter]);
+
+  // Fetch the current page from the backend using server-supported filters.
   useEffect(() => {
+    const offset = (page - 1) * limit;
     dispatch(
       customersActions.fetchCustomersRequest({
-        page: 1,
-        limit: FETCH_ALL_USERS_LIMIT,
-        offset: 0,
+        q: deferredSearchTerm || undefined,
+        is_active:
+          statusFilter === "All"
+            ? undefined
+            : statusFilter === "Active"
+              ? true
+              : false,
+        role: roleQueryValue,
+        page,
+        limit,
+        offset,
       })
     );
-  }, [dispatch, showDeleted]);
+  }, [dispatch, deferredSearchTerm, statusFilter, roleQueryValue, page, limit, showDeleted]);
 
   const handleReset = useCallback(() => {
     setSearchTerm("");
@@ -951,23 +966,6 @@ const CustomerManagement: React.FC = () => {
   const filteredCustomers = useMemo(() => {
     let result = customers;
 
-    if (searchTerm) {
-      const query = searchTerm.toLowerCase();
-      result = result.filter((c) =>
-        c.name.toLowerCase().includes(query) ||
-        (c.email ?? "").toLowerCase().includes(query) ||
-        (c.phone ?? "").toLowerCase().includes(query)
-      );
-    }
-
-    if (statusFilter !== "All") {
-      result = result.filter((c) => c.status === statusFilter);
-    }
-
-    if (roleFilter !== "All") {
-      result = result.filter((c) => c.role === roleFilter);
-    }
-
     if (verifiedFilter === "email") result = result.filter((c) => c.isEmailVerified);
     else if (verifiedFilter === "phone") result = result.filter((c) => c.isPhoneVerified);
     else if (verifiedFilter === "both") result = result.filter((c) => c.isEmailVerified && c.isPhoneVerified);
@@ -979,37 +977,39 @@ const CustomerManagement: React.FC = () => {
     }
 
     return result;
-  }, [customers, searchTerm, statusFilter, roleFilter, verifiedFilter, phoneFilter]);
+  }, [customers, verifiedFilter, phoneFilter]);
+
+  const hasServerFilters = !!(
+    deferredSearchTerm ||
+    statusFilter !== "All" ||
+    roleFilter !== "All"
+  );
+  const displayedCustomers = hasServerFilters ? customers : filteredCustomers;
 
   // If phone filter is present in URL and exactly one match, open details panel
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const phone = params.get("phone");
-    if (phone && filteredCustomers.length === 1) {
-      dispatch(customersActions.setSelectedCustomerId(filteredCustomers[0].id));
+    if (phone && displayedCustomers.length === 1) {
+      dispatch(customersActions.setSelectedCustomerId(displayedCustomers[0].id));
     }
-  }, [filteredCustomers, dispatch]);
+  }, [displayedCustomers, dispatch]);
 
   const navigate = useNavigate();
   const location = useLocation();
   const selectedCustomer = useMemo(
-    () => filteredCustomers.find((c) => c.id === selectedCustomerId) ?? null,
-    [filteredCustomers, selectedCustomerId]
+    () => displayedCustomers.find((c) => c.id === selectedCustomerId) ?? null,
+    [displayedCustomers, selectedCustomerId]
   );
 
-  const totalFilteredCount = filteredCustomers.length;
-  const totalPages = Math.max(1, Math.ceil(totalFilteredCount / limit));
-  const paginatedCustomers = useMemo(
-    () => filteredCustomers.slice((page - 1) * limit, page * limit),
-    [filteredCustomers, page, limit]
-  );
-  const visibleStart = totalFilteredCount === 0 ? 0 : (page - 1) * limit + 1;
-  const visibleEnd = totalFilteredCount === 0 ? 0 : Math.min((page - 1) * limit + paginatedCustomers.length, totalFilteredCount);
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const visibleStart = totalCount === 0 ? 0 : (page - 1) * limit + 1;
+  const visibleEnd = totalCount === 0 ? 0 : Math.min((page - 1) * limit + displayedCustomers.length, totalCount);
 
   // Pre-format dates for table (avoid repeated new Date per cell)
   const formattedDates = useMemo(() => {
     const map = new Map<string, { joined: string; lastLogin: string }>();
-    for (const c of paginatedCustomers) {
+    for (const c of displayedCustomers) {
       const joined = new Date(c.createdAt).toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
@@ -1025,7 +1025,7 @@ const CustomerManagement: React.FC = () => {
       map.set(c.id, { joined, lastLogin });
     }
     return map;
-  }, [paginatedCustomers]);
+  }, [displayedCustomers]);
 
   // View handler navigates to full-page user details
   const onViewCustomer = useCallback(
@@ -1041,11 +1041,11 @@ const CustomerManagement: React.FC = () => {
     const params = new URLSearchParams(location.search);
     const phone = params.get("phone");
     if (!phone) return;
-    const matches = filteredCustomers.filter((c: Customer) => c.phone && c.phone.includes(phone));
+    const matches = displayedCustomers.filter((c: Customer) => c.phone && c.phone.includes(phone));
     if (matches.length === 1) {
       navigate(`/admin/users/${matches[0].id}`, { replace: true });
     }
-  }, [location.search, filteredCustomers, navigate]);
+  }, [location.search, displayedCustomers, navigate]);
 
   const onClosePanel = useCallback(() => {
     dispatch(customersActions.setSelectedCustomerId(null));
@@ -1055,7 +1055,7 @@ const CustomerManagement: React.FC = () => {
   const handleExport = useCallback(() => {
     window.setTimeout(() => {
       const headers = ["Name", "Email", "Status", "Role", "Phone", "Verified", "Joined"];
-      const rows = filteredCustomers.map((c) => [
+      const rows = displayedCustomers.map((c) => [
         c.name,
         c.email,
         c.status,
@@ -1087,7 +1087,7 @@ const CustomerManagement: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     }, 0);
-  }, [filteredCustomers]);
+  }, [displayedCustomers]);
 
   // Action handler for block/unblock/softDelete/restore/setRole
   const onAction = useCallback(
@@ -1456,7 +1456,7 @@ const CustomerManagement: React.FC = () => {
                     </td>
                   </tr>
                 ))
-                : paginatedCustomers.map((c, index) => {
+                : displayedCustomers.map((c, index) => {
                   const fd = formattedDates.get(c.id);
                   return (
                     <CustomerRow
@@ -1476,7 +1476,7 @@ const CustomerManagement: React.FC = () => {
             </tbody>
           </table>
 
-          {status !== "loading" && totalFilteredCount === 0 && (
+          {status !== "loading" && displayedCustomers.length === 0 && (
             <div className="py-20 text-center space-y-3">
               <User className="mx-auto text-[#D4D4D8]" size={32} />
               <p className="text-sm font-bold text-[#18181B]">No matching results</p>
@@ -1491,7 +1491,7 @@ const CustomerManagement: React.FC = () => {
         <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
           <div className="flex items-center gap-4">
             <div className="text-[11px] text-[#A1A1AA] font-medium">
-              Showing {visibleStart}-{visibleEnd} of {totalFilteredCount} users
+              Showing {visibleStart}-{visibleEnd} of {totalCount} users
             </div>
             <select
               value={limit}

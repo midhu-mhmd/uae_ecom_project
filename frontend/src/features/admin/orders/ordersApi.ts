@@ -110,9 +110,10 @@ export const ordersApi = {
     list: async (
         params?: OrdersQuery
     ): Promise<{ results: OrderDto[]; count: number }> => {
+        const { page: _page, ...requestParams } = params ?? {};
         const res = await api.get<{ results: OrderDto[]; count: number }>(
             "/orders/",
-            { params }
+            { params: requestParams }
         );
         return res.data;
     },

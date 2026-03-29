@@ -58,6 +58,9 @@ export interface ProductDto {
   videos: ProductVideoDto[];
   discount_tiers: DiscountTierDto[];
   delivery_tiers: DeliveryTierDto[];
+  available_locations?: string[];
+  available_emirates?: string[];
+  service_areas?: Array<string | Record<string, unknown>>;
   average_rating: number;
   total_reviews: number;
   created_at: string;
@@ -92,9 +95,10 @@ export const productsApi = {
   list: async (
     params?: ProductsQuery
   ): Promise<{ results: ProductDto[]; count: number }> => {
+    const { page: _page, ...requestParams } = params ?? {};
     const res = await api.get<{ results: ProductDto[]; count: number }>(
       "/products/products/",
-      { params }
+      { params: requestParams }
     );
     return res.data;
   },
@@ -126,7 +130,10 @@ export const productsApi = {
     id: number,
     payload: Partial<ProductDto> | FormData
   ): Promise<ProductDto> => {
-    const res = await api.patch<ProductDto>(`/products/products/${id}/`, payload);
+    const isFormData = payload instanceof FormData;
+    const res = await api.patch<ProductDto>(`/products/products/${id}/`, payload, {
+      ...(isFormData && { timeout: 60000 }),
+    });
     return res.data;
   },
 

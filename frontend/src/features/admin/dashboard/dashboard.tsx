@@ -50,15 +50,9 @@ const Dashboard: React.FC = () => {
 
   // Dispatch fetches on mount if data is empty
   useEffect(() => {
-    if (orders.length === 0 && ordersStatus !== "loading") {
-      // Dashboard KPIs need a broad dataset, not a single small page.
-      dispatch(ordersActions.fetchOrdersRequest({ limit: 1000, page: 1 }));
-    }
+    // Removed orders fetch with limit=1000 as per requirements
     if (products.length === 0 && productsStatus !== "loading") {
       dispatch(productsActions.fetchProductsRequest({ limit: 20, page: 1 }));
-    }
-    if (customers.length === 0) {
-      dispatch(customersActions.fetchCustomersRequest({ limit: 10, page: 1 }));
     }
     if (payments.length === 0) {
       dispatch(paymentsActions.fetchPaymentsRequest({ limit: 10, page: 1 }));
