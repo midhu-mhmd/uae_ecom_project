@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { dashboardApi } from "../dashboard/dashboardApi";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -256,13 +257,43 @@ const OrderManagement: React.FC = () => {
   const hasServerFilters = !!(debouncedSearch || statusFilter !== "All" || paymentFilter !== "All");
   const displayedOrders = hasServerFilters ? orders : filteredOrders;
 
-  // Stats
-  const totalRevenue = displayedOrders.reduce((sum, o) => sum + o.total, 0);
-  const processingCount = displayedOrders.filter(
-    (o) => o.status === "PROCESSING" || o.status === "PAID"
-  ).length;
-  const shippedCount = displayedOrders.filter((o) => o.status === "SHIPPED").length;
-  const deliveredCount = displayedOrders.filter((o) => o.status === "DELIVERED").length;
+
+  // Order counts from API
+  const [orderCounts, setOrderCounts] = useState({
+    total_orders: 0,
+    processing: 0,
+    shipped: 0,
+    delivered: 0,
+    total_revenue: "0.00",
+  });
+  const [countsLoading, setCountsLoading] = useState(true);
+  const [countsError, setCountsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setCountsLoading(true);
+    setCountsError(null);
+    dashboardApi.fetchOrdersCount()
+      .then((res: any) => {
+        if (mounted) {
+          const data = res.data || res;
+          setOrderCounts({
+            total_orders: data.total_orders ?? 0,
+            processing: data.processing ?? 0,
+            shipped: data.shipped ?? 0,
+            delivered: data.delivered ?? 0,
+            total_revenue: data.total_revenue ?? "0.00",
+          });
+        }
+      })
+      .catch(() => {
+        if (mounted) setCountsError("Failed to load order counts");
+      })
+      .finally(() => {
+        if (mounted) setCountsLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   // Unique slots from data for dropdown
   const uniqueSlots = useMemo(() =>
@@ -396,26 +427,26 @@ const OrderManagement: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStat
           label="Total Orders"
-          value={`${totalCount}`}
-          sub={`AED ${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+          value={countsLoading ? "..." : `${orderCounts.total_orders}`}
+          sub={countsError ? countsError : `AED ${Number(orderCounts.total_revenue).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
           icon={<ShoppingBag size={16} className="text-[#A1A1AA]" />}
         />
         <QuickStat
           label="Processing"
-          value={`${processingCount}`}
-          sub="Awaiting fulfillment"
+          value={countsLoading ? "..." : `${orderCounts.processing}`}
+          sub={countsError ? countsError : "Awaiting fulfillment"}
           icon={<Clock size={16} className="text-amber-500" />}
         />
         <QuickStat
           label="Shipped"
-          value={`${shippedCount}`}
-          sub="In transit"
+          value={countsLoading ? "..." : `${orderCounts.shipped}`}
+          sub={countsError ? countsError : "In transit"}
           icon={<Truck size={16} className="text-blue-500" />}
         />
         <QuickStat
           label="Delivered"
-          value={`${deliveredCount}`}
-          sub="Completed"
+          value={countsLoading ? "..." : `${orderCounts.delivered}`}
+          sub={countsError ? countsError : "Completed"}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
         />
       </div>
@@ -491,7 +522,7 @@ const OrderManagement: React.FC = () => {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-225">
             <thead className="bg-[#FAFAFA]">
               <tr className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">
                 {isVisible("index") && <th className="px-5 py-4 w-12 text-center">#</th>}
@@ -968,7 +999,7 @@ const OrderDetailsPanel = ({
         className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white z-[60] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white z-60 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="p-6 border-b border-[#EEEEEE] flex justify-between items-center bg-white sticky top-0">
           <div className="flex items-center gap-3">
@@ -1160,7 +1191,7 @@ const OrderDetailsPanel = ({
               <div className="space-y-3">
                 {order.statusHistory.map((entry, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <div className="mt-1 w-2 h-2 rounded-full bg-[#A1A1AA] flex-shrink-0" />
+                    <div className="mt-1 w-2 h-2 rounded-full bg-[#A1A1AA] shrink-0" />
                     <div>
                       <p className="text-xs font-bold text-[#18181B]">{entry.status}</p>
                       <p className="text-[10px] text-[#A1A1AA]">
