@@ -61,13 +61,15 @@ const Navbar: React.FC = () => {
             <div className="bg-cyan-950 text-cyan-50 text-[11px]">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-5">
-                        <Link
-                            to="/orders"
-                            className="flex items-center gap-1.5 hover:text-white transition-colors"
-                        >
-                            <Package size={12} className="text-yellow-400" />
-                            {t('top.trackOrder')}
-                        </Link>
+                        {isAuthenticated && (
+                            <Link
+                                to="/orders"
+                                className="flex items-center gap-1.5 hover:text-white transition-colors"
+                            >
+                                <Package size={12} className="text-yellow-400" />
+                                {t('top.trackOrder')}
+                            </Link>
+                        )}
                         <span className="hidden md:flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
                             <Phone size={12} className="text-yellow-400" />
                             +91 90470 11110
