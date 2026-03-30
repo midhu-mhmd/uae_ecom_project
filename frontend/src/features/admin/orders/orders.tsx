@@ -427,14 +427,6 @@ const OrderManagement: React.FC = () => {
 
           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
             <button
-              onClick={handleReset}
-              className="p-2 text-[#A1A1AA] hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-              title="Clear Filters"
-            >
-              <RotateCcw size={16} />
-            </button>
-            <div className="h-6 w-px bg-[#EEEEEE] mx-1" />
-            <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${isFilterOpen
                 ? "bg-black text-white border-black"
@@ -526,16 +518,7 @@ const OrderManagement: React.FC = () => {
                   )}
                   {isVisible("order") && (
                     <td className="px-5 py-3">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-[#A1A1AA]" size={12} />
-                        <input
-                          type="text"
-                          placeholder="Order #..."
-                          value={searchTerm}
-                          onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                          className="w-full pl-7 pr-2 py-2 bg-[#F9F9F9] border border-transparent rounded-md text-[11px] outline-none focus:bg-white focus:border-[#EEEEEE]"
-                        />
-                      </div>
+                      <div className="text-[10px] text-[#A1A1AA] font-medium italic">—</div>
                     </td>
                   )}
                   {isVisible("customer") && (

@@ -486,7 +486,7 @@ const ProductProfile: React.FC = () => {
               </div>
               <div>
                 <p className="font-bold text-stone-900">{t("details.meta.fastDelivery.title")}</p>
-                <p className="text-stone-500 text-xs">{t("details.meta.fastDelivery.subtitle")}</p>
+                <p className="text-stone-500 text-xs">within 2 or 3 days</p>
               </div>
             </div>
 

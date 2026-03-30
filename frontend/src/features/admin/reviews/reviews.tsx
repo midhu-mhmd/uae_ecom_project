@@ -263,16 +263,6 @@ const ReviewsManagement: React.FC = () => {
 
           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
             <button
-              onClick={handleReset}
-              className="p-2 text-[#A1A1AA] hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-              title="Clear Filters"
-            >
-              <RotateCcw size={16} />
-            </button>
-
-            <div className="h-6 w-px bg-[#EEEEEE] mx-1" />
-
-            <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${isFilterOpen
                 ? "bg-black text-white border-black"

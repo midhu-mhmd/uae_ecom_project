@@ -7,6 +7,7 @@ import React, {
   useState,
   memo,
 } from "react";
+import { dashboardApi } from "../dashboard/dashboardApi";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search,
@@ -14,7 +15,6 @@ import {
   X,
   Phone,
   Mail,
-  RotateCcw,
   ChevronRight,
   ChevronLeft,
   Download,
@@ -489,7 +489,7 @@ const CustomerDetailPanel = memo(function CustomerDetailPanel({
         className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white z-[60] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white z-60 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="p-6 border-b border-[#EEEEEE] flex justify-between items-center bg-white sticky top-0">
           <div className="flex items-center gap-3">
@@ -949,19 +949,41 @@ const CustomerManagement: React.FC = () => {
     setPage(1);
   }, []);
 
-  const stats = useMemo(() => {
-    let active = 0;
-    let blocked = 0;
-    let admins = 0;
 
-    for (const c of customers) {
-      if (c.status === "Active") active++;
-      else if (c.status === "Blocked") blocked++;
-      if (c.role === "admin") admins++;
-    }
+  // User counts from API
+  const [userCounts, setUserCounts] = useState({
+    total_users: 0,
+    active: 0,
+    blocked: 0,
+    admins: 0,
+  });
+  const [countsLoading, setCountsLoading] = useState(true);
+  const [countsError, setCountsError] = useState<string | null>(null);
 
-    return { active, blocked, admins };
-  }, [customers]);
+  useEffect(() => {
+    let mounted = true;
+    setCountsLoading(true);
+    setCountsError(null);
+    dashboardApi.fetchUsersCount()
+      .then((res: any) => {
+        if (mounted) {
+          const data = res.data || res;
+          setUserCounts({
+            total_users: data.total_users ?? 0,
+            active: data.active ?? 0,
+            blocked: data.blocked ?? 0,
+            admins: data.admins ?? 0,
+          });
+        }
+      })
+      .catch(() => {
+        if (mounted) setCountsError("Failed to load user counts");
+      })
+      .finally(() => {
+        if (mounted) setCountsLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     let result = customers;
@@ -1111,7 +1133,7 @@ const CustomerManagement: React.FC = () => {
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[100]"
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-100"
           >
             <div
               className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold backdrop-blur-xl ${toast.type === "success"
@@ -1148,15 +1170,15 @@ const CustomerManagement: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStat
           label="Total Users"
-          value={`${totalCount}`}
-          sub="All registered"
+          value={countsLoading ? "..." : `${userCounts.total_users}`}
+          sub={countsError ? countsError : "All registered"}
           icon={<User size={16} className="text-[#A1A1AA]" />}
           onClick={handleReset}
         />
         <QuickStat
           label="Active"
-          value={`${stats.active}`}
-          sub="Active accounts"
+          value={countsLoading ? "..." : `${userCounts.active}`}
+          sub={countsError ? countsError : "Active accounts"}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
           onClick={() => {
             setStatusFilter("Active");
@@ -1167,8 +1189,8 @@ const CustomerManagement: React.FC = () => {
         />
         <QuickStat
           label="Blocked"
-          value={`${stats.blocked}`}
-          sub="Suspended"
+          value={countsLoading ? "..." : `${userCounts.blocked}`}
+          sub={countsError ? countsError : "Suspended"}
           icon={<XCircle size={16} className="text-rose-500" />}
           onClick={() => {
             setStatusFilter("Blocked");
@@ -1179,8 +1201,8 @@ const CustomerManagement: React.FC = () => {
         />
         <QuickStat
           label="Admins"
-          value={`${stats.admins}`}
-          sub="Admin role"
+          value={countsLoading ? "..." : `${userCounts.admins}`}
+          sub={countsError ? countsError : "Admin role"}
           icon={<Shield size={16} className="text-blue-500" />}
           onClick={() => {
             setRoleFilter("admin");
@@ -1196,19 +1218,6 @@ const CustomerManagement: React.FC = () => {
         {/* Toolbar */}
         <div className="p-4 border-b border-[#EEEEEE] flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
           <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-
-            <div className="h-6 w-px bg-[#EEEEEE] mx-1" />
-
-            <button
-              onClick={handleReset}
-              className="p-2 text-[#A1A1AA] hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-              title="Clear Filters"
-            >
-              <RotateCcw size={16} />
-            </button>
-
-            <div className="h-6 w-px bg-[#EEEEEE] mx-1" />
-
             <button
               onClick={() => setIsFilterOpen((v) => !v)}
               className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[11px] font-bold transition-all ${isFilterOpen ? "bg-black text-white border-black" : "bg-white text-black border-[#EEEEEE] hover:bg-gray-50"
@@ -1272,7 +1281,7 @@ const CustomerManagement: React.FC = () => {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+          <table className="w-full text-left border-collapse min-w-250">
             <thead className="bg-[#FAFAFA]">
               <tr className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">
                 {isVisible("index") && <th className="px-5 py-4 w-12 text-center">#</th>}

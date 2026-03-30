@@ -61,15 +61,13 @@ const Navbar: React.FC = () => {
             <div className="bg-cyan-950 text-cyan-50 text-[11px]">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-5">
-                        {isAuthenticated && (
-                            <Link
-                                to="/orders"
-                                className="flex items-center gap-1.5 hover:text-white transition-colors"
-                            >
-                                <Package size={12} className="text-yellow-400" />
-                                {t('top.trackOrder')}
-                            </Link>
-                        )}
+                        <Link
+                            to="/orders"
+                            className="flex items-center gap-1.5 hover:text-white transition-colors"
+                        >
+                            <Package size={12} className="text-yellow-400" />
+                            {t('top.trackOrder')}
+                        </Link>
                         <span className="hidden md:flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
                             <Phone size={12} className="text-yellow-400" />
                             +91 90470 11110
@@ -124,7 +122,7 @@ const Navbar: React.FC = () => {
                             <span className="text-xl font-black tracking-wider text-slate-800 uppercase leading-none">
                                 SIMAK <span className="text-cyan-600">FRESH</span>
                             </span>
-                            <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.2em] text-cyan-700/80 uppercase mt-1 leading-none">
+                            <span className="text-[9px] sm:text-[9.7px] font-semibold tracking-[0.2em] text-cyan-700/80 uppercase mt-1 leading-none">
                                 Signature of Quality
                             </span>
                         </div>

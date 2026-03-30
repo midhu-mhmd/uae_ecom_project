@@ -80,7 +80,16 @@ export interface DeliveryEstimationDto {
     }>;
 }
 
-/* ── Order DTO from backend ── */
+/* --- Order Counts DTO --- */
+export interface OrderCountsDto {
+    total: number;
+    processing: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+}
+
+/* --- Order DTO from backend --- */
 export interface OrderDto {
     id: number;
     status: string;
