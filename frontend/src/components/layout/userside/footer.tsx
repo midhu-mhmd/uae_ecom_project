@@ -17,7 +17,7 @@ import {
 
 
 import { useTranslation } from "react-i18next";
-import simakLogo from "../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png";
+import simakLogo from "../../../assets/SIMAK FRESH FINAL SVG-01.svg";
 
 /* ── Component ── */
 const Footer: React.FC = () => {
@@ -76,12 +76,12 @@ const Footer: React.FC = () => {
                                 <div className="w-9 h-9 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
                                     <img
                                         src={simakLogo}
-                                        alt="SIMAK FRESH"
+                                        alt={t('brand.name')}
                                         className="h-7 w-7 object-contain"
                                     />
                                 </div>
                                 <span className="text-lg font-extrabold text-white tracking-tight">
-                                    SIMAK FRESH
+                                    {t('brand.name')}
                                 </span>
                             </div>
                             <p className="text-xs text-cyan-200/60 leading-relaxed mb-5 max-w-xs">

@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import useLanguageToggle from '../../../hooks/useLanguageToggle';
 
 // ✅ Logo
-import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
+import simakLogo from '../../../assets/SIMAK FRESH FINAL SVG-01.svg';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -197,6 +197,12 @@ const Navbar: React.FC = () => {
                                             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-cyan-600"
                                         >
                                             <Bell size={14} /> {t('account.notifications')}
+                                        </Link>
+                                        <Link
+                                            to="/support"
+                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600 hover:text-cyan-600"
+                                        >
+                                            <Phone size={14} /> {t('top.support')}
                                         </Link>
                                         <div className="h-px bg-slate-100 my-1" />
                                         <button

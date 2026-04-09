@@ -159,9 +159,9 @@ const ReviewModal: React.FC<{
 
     if (validItems.length === 0) {
         return (
-            <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 sm:p-6">
+            <div className="fixed inset-0 z-9998 flex items-center justify-center p-4 sm:p-6">
                 <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" onClick={onClose} />
-                <div className="relative bg-white rounded-[24px] p-8 max-w-sm w-full shadow-2xl z-10 text-center">
+                <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl z-10 text-center">
                     <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
                         <AlertCircle size={32} />
                     </div>
@@ -274,7 +274,7 @@ const ReviewModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-9998 flex items-center justify-center p-4 sm:p-6">
             {/* Minimal Blur Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
@@ -290,7 +290,7 @@ const ReviewModal: React.FC<{
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className="relative w-full max-w-[420px] bg-white rounded-[24px] shadow-2xl overflow-hidden z-10 flex flex-col"
+                className="relative w-full max-w-96 bg-white rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col"
             >
                 {/* Absolute Close Button */}
                 <button
@@ -314,7 +314,7 @@ const ReviewModal: React.FC<{
                         >
                             {/* Product Header Context */}
                             <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
                                     {current.product_image ? (
                                         <img src={current.product_image} alt={current.product_name} className="w-full h-full object-cover" />
                                     ) : (
@@ -550,7 +550,7 @@ const OrderList: React.FC = () => {
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <div key={i} className="bg-white rounded-[2rem] p-8 h-72 animate-pulse flex flex-col justify-between">
+                            <div key={i} className="bg-white rounded-4xl p-8 h-72 animate-pulse flex flex-col justify-between">
                                 <div className="flex justify-between items-start">
                                     <div className="w-16 h-16 bg-slate-100 rounded-2xl" />
                                     <div className="w-24 h-8 bg-slate-100 rounded-full" />
@@ -563,7 +563,7 @@ const OrderList: React.FC = () => {
                         ))}
                     </div>
                 ) : error ? (
-                    <div className="bg-white rounded-[2rem] p-12 text-center max-w-2xl mx-auto shadow-sm">
+                    <div className="bg-white rounded-4xl p-12 text-center max-w-2xl mx-auto shadow-sm">
                         <AlertCircle className="mx-auto text-red-400 mb-6" size={48} />
                         <h3 className="text-2xl font-bold text-slate-900 mb-2">{t("list.errorTitle")}</h3>
                         <p className="text-slate-500 mb-8">{error}</p>
@@ -572,7 +572,7 @@ const OrderList: React.FC = () => {
                         </button>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="bg-white rounded-[2rem] p-16 text-center max-w-2xl mx-auto shadow-sm">
+                    <div className="bg-white rounded-4xl p-16 text-center max-w-2xl mx-auto shadow-sm">
                         <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-8">
                             <Package className="text-slate-400" size={40} />
                         </div>
@@ -613,7 +613,7 @@ const OrderList: React.FC = () => {
                                     >
                                         <Link
                                             to={`/orders/${order.id}`}
-                                            className="block h-full bg-white rounded-[2rem] p-8 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between"
+                                            className="h-full bg-white rounded-4xl p-8 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between"
                                         >
                                             <div className="flex justify-between items-start mb-8 border-b border-slate-100 pb-6">
                                                 <div className="flex -space-x-4">
@@ -664,8 +664,15 @@ const OrderList: React.FC = () => {
                                             )}
 
                                             <div className="flex justify-between items-end mt-8 pt-6 border-t border-slate-100">
-                                                <div className="text-2xl font-black text-slate-900">
-                                                    AED {parseFloat(order.total_amount).toFixed(2)}
+                                                <div className="flex flex-col">
+                                                    {Number(order.discount_amount || 0) > 0 && (
+                                                        <span className="text-[10px] font-black uppercase text-emerald-600 mb-1 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md self-start">
+                                                            {order.coupon_code || "OFF"} - AED {parseFloat(order.discount_amount || "0").toFixed(0)} SAVED
+                                                        </span>
+                                                    )}
+                                                    <div className="text-2xl font-black text-slate-900">
+                                                        AED {parseFloat(order.total_amount).toFixed(2)}
+                                                    </div>
                                                 </div>
                                                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-cyan-600 group-hover:text-white transition-colors text-slate-400">
                                                     <ChevronRight size={20} className="group-hover:translate-x-0.5 transition-transform" />
@@ -699,11 +706,13 @@ const OrderList: React.FC = () => {
 const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
     const { t } = useTranslation("orders");
     const navigate = useNavigate();
+    const toast = useToast();
     const { isArabic } = useLanguageToggle();
     const [order, setOrder] = useState<OrderDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reviewOpen, setReviewOpen] = useState(false);
+    const [retryingPayment, setRetryingPayment] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -727,12 +736,12 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                     <div className="h-10 bg-slate-200 rounded-xl w-32 animate-pulse" />
                 </div>
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-12 gap-6 animate-pulse">
-                    <div className="md:col-span-12 h-40 bg-white rounded-[2rem]" />
-                    <div className="md:col-span-8 h-96 bg-white rounded-[2rem]" />
-                    <div className="md:col-span-4 h-96 bg-white rounded-[2rem]" />
-                    <div className="md:col-span-4 h-48 bg-white rounded-[2rem]" />
-                    <div className="md:col-span-4 h-48 bg-white rounded-[2rem]" />
-                    <div className="md:col-span-4 h-48 bg-slate-900 rounded-[2rem]" />
+                    <div className="md:col-span-12 h-40 bg-white rounded-4xl" />
+                    <div className="md:col-span-8 h-96 bg-white rounded-4xl" />
+                    <div className="md:col-span-4 h-96 bg-white rounded-4xl" />
+                    <div className="md:col-span-4 h-48 bg-white rounded-4xl" />
+                    <div className="md:col-span-4 h-48 bg-white rounded-4xl" />
+                    <div className="md:col-span-4 h-48 bg-slate-900 rounded-4xl" />
                 </div>
             </div>
         );
@@ -741,7 +750,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
     if (error || !order) {
         return (
             <div className="min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center p-6 text-center">
-                <div className="bg-white p-12 rounded-[2rem] max-w-lg w-full shadow-sm">
+                <div className="bg-white p-12 rounded-4xl max-w-lg w-full shadow-sm">
                     <AlertCircle className="mx-auto text-red-500 mb-6" size={48} />
                     <h3 className="text-2xl font-bold text-slate-900 mb-4">{t("detail.error")}</h3>
                     <p className="text-slate-500 mb-8">{error || t("detail.orderNotFound")}</p>
@@ -758,7 +767,11 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
     const payment = order.payment;
     const subtotal = order.items.reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
     const isPaymentSuccess = ["SUCCESS", "PAID", "COMPLETED"].includes((payment?.status || "").toUpperCase());
+    const isPaymentPending = ["PENDING", "AWAITING", "INITIATED"].includes((payment?.status || "").toUpperCase());
     const tipAmount = Number(((order as any)?.tip_amount) || 0);
+    const discountAmount = Number(((order as any)?.discount_amount) || 0);
+    const deliveryCharge = Number(((order as any)?.delivery_charge) || 0);
+    const couponCode = (order as any)?.coupon_code;
 
     const canDownloadReceipt =
         !!payment &&
@@ -796,6 +809,22 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
         }
     };
 
+    const handleRetryPayment = async () => {
+        setRetryingPayment(true);
+        try {
+            const res = await ordersApi.retryPayment(order.id);
+            if (res.payment_url) {
+                sessionStorage.setItem("pending_order_id", String(order.id));
+                window.location.href = res.payment_url;
+            }
+        } catch (err: any) {
+            const msg = err?.response?.data?.error || err?.response?.data?.detail || "Failed to retry payment. Please try again.";
+            toast.show(msg, "error");
+        } finally {
+            setRetryingPayment(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#F0F2F5] font-sans pb-24 pt-8">
 
@@ -811,7 +840,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 
                     {/* Meta Bento */}
-                    <div className="md:col-span-12 bg-white rounded-[2rem] p-8 sm:p-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden">
+                    <div className="md:col-span-12 bg-white rounded-4xl p-8 sm:p-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden">
                         <div className="relative z-10">
                             <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold mb-6 ${st.bg} ${st.color}`}>
                                 {st.icon} {t(`status.${st.key}`)}
@@ -823,6 +852,19 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                             <div className="text-right">
                                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">{t("detail.orderTotal")}</p>
                                 <p className="text-4xl font-black text-slate-900">AED {parseFloat(order.total_amount).toFixed(2)}</p>
+                                {(isPaymentPending || (!payment && order.status.toLowerCase() === "pending")) && (
+                                    <button
+                                        onClick={handleRetryPayment}
+                                        disabled={retryingPayment}
+                                        className="mt-4 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-cyan-600 text-white rounded-xl font-bold text-sm hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {retryingPayment ? (
+                                            <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                                        ) : (
+                                            <><CreditCard size={16} /> Retry Payment</>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -844,7 +886,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                     </div>
 
                     {/* Items Bento */}
-                    <section className="md:col-span-8 bg-white rounded-[2rem] p-8 flex flex-col">
+                    <section className="md:col-span-8 bg-white rounded-4xl p-8 flex flex-col">
                         <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
                             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
                                 <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Package size={20} /></div>
@@ -858,7 +900,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                 const pid = (item as any).product?.id || item.product || (item as any).product_id;
                                 return (
                                 <div key={item.id} className="flex flex-col sm:flex-row gap-6 p-4 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                                    <div className="w-24 h-24 bg-white rounded-[1.2rem] flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                                    <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
                                         {item.product_image ? (
                                             <img
                                                 src={item.product_image}
@@ -890,7 +932,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                     </section>
 
                     {/* Timeline Bento */}
-                    <section className="md:col-span-4 bg-white rounded-[2rem] p-8">
+                    <section className="md:col-span-4 bg-white rounded-4xl p-8">
                         <div className="flex items-center gap-3 mb-8 pb-6 border-b border-slate-100">
                             <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Clock size={20} /></div>
                             <h2 className="text-xl font-bold text-slate-900">{t("detail.timeline")}</h2>
@@ -974,7 +1016,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                                 {/* Connector line */}
                                                 {!isLast && (
                                                     <div
-                                                        className={`absolute left-[11px] top-7 w-[2px] h-[calc(100%)] ${lineClass}`}
+                                                        className={`absolute left-2.75 top-7 w-0.5 h-[calc(100%)] ${lineClass}`}
                                                     />
                                                 )}
 
@@ -1024,7 +1066,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
 
                     {/* Address Bento */}
                     {addr ? (
-                        <section className="md:col-span-4 bg-white rounded-[2rem] p-8 flex flex-col justify-between">
+                        <section className="md:col-span-4 bg-white rounded-4xl p-8 flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={20} /></div>
@@ -1041,28 +1083,16 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                     <span className="text-sm text-slate-400">{t("detail.phone")}</span>
                                     {addr.phone_number}
                                 </div>
-                                <div className="mt-3 flex justify-end">
-                                    <a
-                                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                                            [addr.flat_villa_number, addr.building_name, addr.street_address, addr.area, addr.city, addr.emirate]
-                                                .filter(Boolean).join(", ")
-                                        )}${addr.latitude && addr.longitude ? `&destination_place_id=&travelmode=driving` : ""}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold border border-slate-200 hover:bg-slate-50"
-                                    >
-                                        {t("detail.directions")}
-                                    </a>
-                                </div>
+
                             </div>
                         </section>
                     ) : (
-                        <div className="md:col-span-4 bg-white rounded-[2rem]" />
+                        <div className="md:col-span-4 bg-white rounded-4xl" />
                     )}
 
                     {/* Payment Bento */}
                     {payment ? (
-                        <section className="md:col-span-4 bg-white rounded-[2rem] p-8 flex flex-col justify-between">
+                        <section className="md:col-span-4 bg-white rounded-4xl p-8 flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><CreditCard size={20} /></div>
@@ -1120,14 +1150,55 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                     )}
                                 </div>
                             )}
+                            {isPaymentPending && (
+                                <div className="mt-6 pt-6 border-t border-slate-100">
+                                    <button
+                                        onClick={handleRetryPayment}
+                                        disabled={retryingPayment}
+                                        className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-cyan-600 text-white rounded-xl font-bold text-sm hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {retryingPayment ? (
+                                            <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                                        ) : (
+                                            <><CreditCard size={16} /> Retry Payment</>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </section>
+                    ) : order.status.toLowerCase() === "pending" ? (
+                        <section className="md:col-span-4 bg-white rounded-4xl p-8 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><CreditCard size={20} /></div>
+                                    <h2 className="text-xl font-bold text-slate-900">{t("detail.payment")}</h2>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-400 mb-1">{t("detail.status")}</p>
+                                    <p className="capitalize font-black text-lg text-amber-500">Pending</p>
+                                </div>
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-slate-100">
+                                <button
+                                    onClick={handleRetryPayment}
+                                    disabled={retryingPayment}
+                                    className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-cyan-600 text-white rounded-xl font-bold text-sm hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {retryingPayment ? (
+                                        <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                                    ) : (
+                                        <><CreditCard size={16} /> Retry Payment</>
+                                    )}
+                                </button>
+                            </div>
                         </section>
                     ) : (
-                        <div className="md:col-span-4 bg-white rounded-[2rem]" />
+                        <div className="md:col-span-4 bg-white rounded-4xl" />
                     )}
 
                     {/* Delivery Notes Bento */}
                     {order.delivery_notes && (
-                        <section className="md:col-span-4 bg-white rounded-[2rem] p-8 flex flex-col">
+                        <section className="md:col-span-4 bg-white rounded-4xl p-8 flex flex-col">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><FileText size={20} /></div>
                                 <h2 className="text-xl font-bold text-slate-900">{t("detail.deliveryNotes")}</h2>
@@ -1137,13 +1208,32 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                     )}
 
                     {/* Total Summary Bento */}
-                    <section className="md:col-span-4 bg-slate-900 text-white rounded-[2rem] p-8 flex flex-col justify-between relative overflow-hidden">
+                    <section className="md:col-span-4 bg-slate-900 text-white rounded-4xl p-8 flex flex-col justify-between relative overflow-hidden">
                         <div className="relative z-10">
                             <h2 className="text-xl font-bold text-white mb-6">{t("detail.summary")}</h2>
                             <div className="space-y-4 text-sm font-bold text-slate-400">
                                 <div className="flex justify-between items-center">
                                     <span>{t("detail.subtotal")}</span>
                                     <span className="text-white text-base">AED {subtotal.toFixed(2)}</span>
+                                </div>
+                                {discountAmount > 0 && (
+                                    <div className="flex justify-between items-center text-emerald-400">
+                                        <div className="flex flex-col">
+                                            <span>{t("summary.discount", { defaultValue: "Discount" })}</span>
+                                            {couponCode && (
+                                                <span className="text-[10px] font-mono uppercase tracking-wider opacity-75">
+                                                    Code: {couponCode}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-base">-AED {discountAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center">
+                                    <span>{t("summary.shipping", { defaultValue: "Shipping" })}</span>
+                                    <span className="text-white text-base">
+                                        {deliveryCharge > 0 ? `AED ${deliveryCharge.toFixed(2)}` : t("summary.free", { defaultValue: "Free" })}
+                                    </span>
                                 </div>
                                 {tipAmount > 0 && (
                                     <div className="flex justify-between items-center">

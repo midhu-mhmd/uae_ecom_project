@@ -17,12 +17,14 @@ import {
   X,
   LogOut,
   ScanLine,
-  Image as BannersIcon
+  Tag,
+  Image as BannersIcon,
+  Settings
 } from 'lucide-react';
 
 import ScannerModal from './ScannerModal';
 import AdminNotificationsDropdown from '../../../features/admin/notifications/AdminNotificationsDropdown';
-import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
+import simakLogo from '../../../assets/SIMAK FRESH FINAL SVG-01.svg';
 
 
 interface NavItem {
@@ -64,9 +66,11 @@ const AdminLayout: React.FC = () => {
     { label: 'Users', path: '/admin/users', icon: <Users size={18} strokeWidth={1.5} /> },
     { label: 'Reviews', path: '/admin/reviews', icon: <Star size={18} strokeWidth={1.5} /> },
     { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={18} strokeWidth={1.5} /> },
+    { label: 'Coupons', path: '/admin/marketing/coupons', icon: <Tag size={18} strokeWidth={1.5} /> },
     { label: 'Banners', path: '/admin/banners', icon: <BannersIcon size={18} strokeWidth={1.5} /> },
     { label: 'Notifications', path: '/admin/notifications', icon: <Bell size={18} strokeWidth={1.5} /> },
     { label: 'Support', path: '/admin/support', icon: <Headphones size={18} strokeWidth={1.5} /> },
+    { label: 'Settings', path: '/admin/settings', icon: <Settings size={18} strokeWidth={1.5} /> },
   ];
 
   return (

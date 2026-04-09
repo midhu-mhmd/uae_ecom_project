@@ -96,6 +96,10 @@ export interface OrderDto {
     shipping_address: string;
     shipping_address_details: ShippingAddressDto;
     total_amount: string;
+    tip_amount?: string;
+    coupon_code?: string | null;
+    discount_amount?: string;
+    delivery_charge?: string;
     preferred_delivery_date: string | null;
     preferred_delivery_slot: string | null;
     delivery_notes: string | null;
@@ -114,6 +118,50 @@ export type OrdersQuery = {
     limit?: number;
     offset?: number;
 };
+
+export interface ValidateCouponRequest {
+    coupon_code: string;
+    cart_total: number;
+}
+
+export interface ValidateCouponResponse {
+    success: boolean;
+    message: string;
+    coupon_code?: string;
+    discount_amount: string;
+    discount_type: "percentage" | "fixed" | null;
+    discount_percentage?: number;
+    cart_total: string;
+    final_amount: string;
+}
+
+export interface CheckoutSummaryRequest {
+    address_id: number;
+    coupon_code?: string;
+    tip_amount?: number;
+    preferred_delivery_date?: string;
+    preferred_delivery_slot?: string;
+}
+
+/* ── Delivery Charge Settings DTO ── */
+export interface DeliveryChargeSettingsDto {
+    min_order_for_free_delivery: number;
+    delivery_charge_amount: number;
+}
+
+export interface CheckoutSummaryResponse {
+    success: boolean;
+    cart_total_before_discount: string;
+    discount_amount: string;
+    discount_type: "percentage" | "fixed" | null;
+    discount_code: string | null;
+    coupon_message: string | null;
+    cart_total_after_discount: string;
+    delivery_charge: string;
+    tip_amount: string;
+    final_total: string;
+    items_count: number;
+}
 
 export const ordersApi = {
     list: async (
@@ -178,11 +226,12 @@ export const ordersApi = {
 
     checkout: async (data: {
         address_id: number;
-        payment_method: "COD" | "TELR";
+        payment_method: "COD" | "ZIINA";
         preferred_delivery_date?: string;
         preferred_delivery_slot?: string;
         delivery_notes?: string;
         tip_amount?: number;
+        coupon_code?: string;
     }): Promise<{
         message: string;
         order_id: number;
@@ -195,6 +244,20 @@ export const ordersApi = {
     },
 
     /* ── Dashboard Analytics (Admin Only) ── */
+    validateCoupon: async (
+        data: ValidateCouponRequest
+    ): Promise<ValidateCouponResponse> => {
+        const res = await api.post<ValidateCouponResponse>("/orders/validate_coupon/", data);
+        return res.data;
+    },
+
+    checkoutSummary: async (
+        data: CheckoutSummaryRequest
+    ): Promise<CheckoutSummaryResponse> => {
+        const res = await api.post<CheckoutSummaryResponse>("/orders/checkout_summary/", data);
+        return res.data;
+    },
+
     getDashboardAnalytics: async (): Promise<DashboardAnalyticsDto> => {
         const res = await api.get<DashboardAnalyticsDto>("/orders/dashboard_analytics/");
         return res.data;
@@ -204,5 +267,29 @@ export const ordersApi = {
     estimateDelivery: async (): Promise<DeliveryEstimationDto> => {
         const res = await api.get<DeliveryEstimationDto>("/orders/estimate_delivery/");
         return res.data;
+    },
+
+    /* ── Delivery Charge Settings (Admin) ── */
+    getDeliveryChargeSettings: async (): Promise<DeliveryChargeSettingsDto> => {
+        const res = await api.get<DeliveryChargeSettingsDto>("/orders/delivery_charge_settings/");
+        return res.data;
+    },
+
+    updateDeliveryChargeSettings: async (
+        data: DeliveryChargeSettingsDto
+    ): Promise<DeliveryChargeSettingsDto> => {
+        const res = await api.post<DeliveryChargeSettingsDto>("/orders/delivery_charge_settings/", data);
+        return res.data;
+    },
+
+    /* ── Retry Payment ── */
+    retryPayment: async (orderId: number): Promise<{ payment_url: string }> => {
+        const res = await api.post<{ payment_url: string }>(`/orders/${orderId}/retry_payment/`);
+        return res.data;
+    },
+
+    /* ── Verify Payment ── */
+    verifyPayment: async (orderId: number): Promise<void> => {
+        await api.post(`/orders/${orderId}/verify_payment/`);
     },
 };

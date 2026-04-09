@@ -40,6 +40,8 @@ import CategoriesPage from '../features/admin/products/Categories';
 import BannersManagement from '../features/admin/banners/banner';
 import AdminNotificationsPage from '../features/admin/notifications/AdminNotificationsPage';
 import ContactMessagesPage from '../features/admin/support/ContactMessages';
+import CouponManagement from '../features/admin/marketing/Coupons';
+import SettingsPage from '../features/admin/settings/settings';
 
 // Error Pages
 import BadRequest400 from '../pages/errors/BadRequest400';
@@ -48,6 +50,12 @@ import Forbidden403 from '../pages/errors/Forbidden403';
 import NotFound404 from '../pages/errors/NotFound404';
 import ServerError500 from '../pages/errors/ServerError500';
 import NetworkError from '../pages/errors/NetworkError';
+
+// Payment Result Pages
+import PaymentSuccess from '../pages/payment/PaymentSuccess';
+import PaymentCancelled from '../pages/payment/PaymentCancelled';
+import PaymentFailed from '../pages/payment/PaymentFailed';
+import { PaymentRoute } from './PaymentRoute';
 
 /* ✅ Layout wrapper that adds Navbar to user-facing pages
    ✅ applies language + RTL only on user side
@@ -76,7 +84,6 @@ const UserLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <ScrollToTop />
       <Navbar />
       <div className="flex-1">
         <Outlet />
@@ -92,7 +99,9 @@ export const AppRoutes: React.FC = () => {
     setNavigator((to, options) => navigate(to, options));
   }, [navigate]);
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* --- ERROR ROUTES (Outside Layouts to be full screen) --- */}
       <Route path="/400" element={<BadRequest400 />} />
       <Route path="/401" element={<Unauthorized401 />} />
@@ -100,6 +109,13 @@ export const AppRoutes: React.FC = () => {
       <Route path="/404" element={<NotFound404 />} />
       <Route path="/500" element={<ServerError500 />} />
       <Route path="/network-error" element={<NetworkError />} />
+
+      {/* --- PAYMENT RESULT ROUTES (Protected - requires auth + valid order context) --- */}
+      <Route path="/payment" element={<PaymentRoute />}>
+        <Route path="success" element={<PaymentSuccess />} />
+        <Route path="cancelled" element={<PaymentCancelled />} />
+        <Route path="failed" element={<PaymentFailed />} />
+      </Route>
 
       {/* --- USER ROUTES (with Navbar) --- */}
       <Route element={<UserLayout />}>
@@ -143,14 +159,17 @@ export const AppRoutes: React.FC = () => {
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="reviews" element={<ReviewsManagement />} />
           <Route path="payments" element={<PaymentManagement />} />
+          <Route path="marketing/coupons" element={<CouponManagement />} />
           <Route path="banners" element={<BannersManagement />} />
           <Route path="notifications" element={<AdminNotificationsPage />} />
           <Route path="support" element={<ContactMessagesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 
       {/* Fallback for 404 - Render the NotFound404 page */}
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
+    </>
   );
 };

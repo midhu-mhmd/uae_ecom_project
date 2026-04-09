@@ -1,7 +1,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import simakLogo from "../../assets/SIMAK FRESH FINAL LOGO-01 (1).png";
+import simakLogo from "../../assets/SIMAK FRESH FINAL SVG-01.svg";
 
 /**
  * SIMAK FRESH branded preloader.
@@ -74,26 +74,40 @@ const InitialLoader = ({ label: _label }: { label?: string }) => {
                     </motion.div>
 
                     {/* Shrimp orbiting top-right */}
-                    <motion.span
-                        className="absolute -top-2 -right-2 text-xs select-none"
-                        role="img"
-                        aria-label="shrimp"
+                    <motion.img
+                        src="https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f990.png"
+                        alt="shrimp"
+                        className="absolute -top-3 -right-3 w-7 h-7 select-none"
                         animate={{ y: [0, -3, 0], rotate: [0, -10, 0] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                        🦐
-                    </motion.span>
+                    />
 
                     {/* Crab orbiting bottom-left */}
-                    <motion.span
-                        className="absolute -bottom-2 -left-2 text-xs select-none"
-                        role="img"
-                        aria-label="crab"
+                    <motion.img
+                        src="https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f980.png"
+                        alt="crab"
+                        className="absolute -bottom-3 -left-3 w-7 h-7 select-none"
                         animate={{ y: [0, 3, 0], rotate: [0, 10, 0] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                    >
-                        🦀
-                    </motion.span>
+                    />
+
+                    {/* Hamour orbiting top-left */}
+                    <motion.img
+                        src="https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f41f.png"
+                        alt="hamour"
+                        className="absolute -top-3 -left-3 w-7 h-7 select-none"
+                        animate={{ y: [0, -3, 0], rotate: [0, 10, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
+                    />
+
+                    {/* Sea bream orbiting bottom-right */}
+                    <motion.img
+                        src="https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f420.png"
+                        alt="sea bream"
+                        className="absolute -bottom-3 -right-3 w-7 h-7 select-none"
+                        animate={{ y: [0, 3, 0], rotate: [0, -10, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
+                    />
                 </motion.div>
 
                 {/* Animated brand text, one at a time */}

@@ -20,6 +20,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   checkingAuth: boolean; // optional: for app load /me check
+  referralMessage: string | null;
 }
 
 const initialState: AuthState = {
@@ -33,6 +34,7 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   checkingAuth: true,
+  referralMessage: null,
 };
 
 const authSlice = createSlice({
@@ -48,6 +50,11 @@ const authSlice = createSlice({
       state.error = null;
       state.phone_number = action.payload.phone_number ? Number(action.payload.phone_number) : null;
       state.email = action.payload.email ?? null;
+    },
+
+    googleLogin: (state, _action: PayloadAction<{ credential: string; referral_code?: string }>) => {
+      state.isLoading = true;
+      state.error = null;
     },
 
     verifyOtp: (state, _action: PayloadAction<VerifyOtpRequest>) => {
@@ -79,6 +86,10 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.isLoading = false;
       state.error = null;
+    },
+
+    setReferralMessage: (state, action: PayloadAction<string | null>) => {
+      state.referralMessage = action.payload;
     },
 
     // ✅ optional: app load session check
@@ -122,9 +133,11 @@ const authSlice = createSlice({
 export const {
   requestOtp,
   verifyOtp,
+  googleLogin,
   setStep,
   setMethod,
   setUser,
+  setReferralMessage,
   checkAuth,
   checkAuthDone,
   setUnauthenticated,

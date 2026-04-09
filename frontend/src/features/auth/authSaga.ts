@@ -4,9 +4,11 @@ import { tokenManager } from "../../services/api";
 import {
   requestOtp,
   verifyOtp,
+  googleLogin,
   setStep,
   authError,
   setUser,
+  setReferralMessage,
   checkAuth,
   checkAuthDone,
   setUnauthenticated,
@@ -132,8 +134,54 @@ function* handleVerifyOtp(action: ReturnType<typeof verifyOtp>): Generator<any, 
 
     // ✅ store in redux (UI/guard will redirect)
     yield put(setUser(user));
+
+    // ✅ Capture referral success message if present
+    const referralMsg = verifyRes.data?.referral?.message || verifyRes.data?.referral_message || verifyRes.data?.referral_success;
+    if (referralMsg) {
+      yield put(setReferralMessage(referralMsg));
+    }
   } catch (err: any) {
     yield put(authError(getErrMsg(err, "Invalid OTP")));
+  }
+}
+
+function* handleGoogleLogin(action: ReturnType<typeof googleLogin>): Generator<any, any, any> {
+  try {
+    const { credential, referral_code } = action.payload;
+    const res: { data: any } = yield call(authApi.googleCallback, {
+      code: credential,
+      referral_code: referral_code || undefined,
+    });
+
+    // Extract and store access token
+    const accessToken = res.data?.access || res.data?.accessToken || res.data?.token;
+    if (accessToken) {
+      tokenManager.set(accessToken);
+    }
+
+    // Get user from response or fetch from /me
+    let user = res.data?.user ?? res.data;
+    if (!user || (!user.id && !user.email)) {
+      const meRes: { data: any } = yield call(authApi.me);
+      user = meRes.data?.user ?? meRes.data;
+    }
+
+    // Sync query cache
+    import("../../main").then(({ queryClient }) => {
+      queryClient.setQueryData(["userProfile"], user);
+      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+    });
+
+    yield put(setUser(user));
+
+    // ✅ Capture referral success message if present
+    const referralMsg = res.data?.referral?.message || res.data?.referral_message || res.data?.referral_success;
+    if (referralMsg) {
+      yield put(setReferralMessage(referralMsg));
+    }
+  } catch (err: any) {
+    const msg = getErrMsg(err, "Google login failed");
+    yield put(authError(msg));
   }
 }
 
@@ -183,6 +231,7 @@ function* handleLogout(): Generator<any, any, any> {
 export function* authSaga(): Generator<any, any, any> {
   yield takeLatest(requestOtp.type, handleSendOtp);
   yield takeLatest(verifyOtp.type, handleVerifyOtp);
+  yield takeLatest(googleLogin.type, handleGoogleLogin);
   yield takeLatest(checkAuth.type, handleCheckAuth);
   yield takeLatest(logout.type, handleLogout);
 }

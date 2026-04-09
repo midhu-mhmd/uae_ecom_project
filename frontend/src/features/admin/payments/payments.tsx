@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  CreditCard, Wallet, Banknote, Landmark, RefreshCcw,
+  CreditCard, Wallet, Banknote, RefreshCcw,
   Search, Filter, Download, ChevronRight, X, CheckCircle2,
   AlertCircle, Clock, ArrowUpRight, ArrowDownRight,
-  Receipt, User, ShieldCheck,
+  Receipt, User, ShieldCheck, Landmark,
   LayoutDashboard, ListOrdered, Undo2, HandCoins, BarChart3,
   ChevronLeft, Columns3, Eye,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import {
   selectPayments,
   selectPaymentsStatus,
   selectPaymentsError,
+  selectPaymentsTotal,
 } from "./paymentsSlice";
 import type { Payment, PaymentStatus, PaymentMethod } from "./paymentsSlice";
 
@@ -39,18 +40,7 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 /* --- TYPES --- */
-type ViewType = "dashboard" | "payments" | "refunds" | "settlements" | "cod" | "disputes";
-const FETCH_ALL_PAYMENTS_LIMIT = 1000;
-
-// Debounce hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
+type ViewType = "dashboard" | "payments" | "refunds" | "cod";
 
 /* --- MAIN COMPONENT --- */
 const PaymentManagement: React.FC = () => {
@@ -72,7 +62,6 @@ const PaymentManagement: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
-  const debouncedSearch = useDebounce(searchTerm, 500);
 
   // Column visibility
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(() => {
@@ -102,14 +91,38 @@ const PaymentManagement: React.FC = () => {
   const isVisible = (key: ColumnKey) => visibleColumns[key];
 
   useEffect(() => {
-    dispatch(
-      paymentsActions.fetchPaymentsRequest({
-        page: 1,
-        limit: FETCH_ALL_PAYMENTS_LIMIT,
-        offset: 0,
-      })
-    );
-  }, [dispatch]);
+    const params: any = {
+      page: page,
+      limit: limit,
+      offset: (page - 1) * limit,
+    };
+    
+    if (searchTerm) params.search = searchTerm;
+    if (statusFilter !== "All") {
+      const statusMap: Record<PaymentStatus, string> = {
+        "Pending": "PENDING",
+        "Success": "SUCCESS",
+        "Failed": "FAILED",
+        "Refunded": "REFUNDED"
+      };
+      params.status = statusMap[statusFilter];
+    }
+    if (methodFilter !== "All") {
+      const methodMap: Record<PaymentMethod, string> = {
+        "UPI": "UPI",
+        "Card": "ZIINA",
+        "NetBanking": "NETBANKING",
+        "Wallet": "WALLET",
+        "COD": "COD",
+        "N/A": ""
+      };
+      const mappedMethod = methodMap[methodFilter];
+      if (mappedMethod) params.payment_method = mappedMethod;
+    }
+    
+    console.log("Fetching payments with params:", params);
+    dispatch(paymentsActions.fetchPaymentsRequest(params));
+  }, [dispatch, page, limit, searchTerm, statusFilter, methodFilter]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -124,55 +137,16 @@ const PaymentManagement: React.FC = () => {
 
   const hasActiveFilters = !!(searchTerm || statusFilter !== "All" || methodFilter !== "All" || orderFilter || customerFilter || amountMin || amountMax);
 
-  // Filter from the full loaded dataset, then paginate the filtered rows locally.
-  const filteredPayments = useMemo(() => {
-    let result = payments;
-    if (debouncedSearch) {
-      const query = debouncedSearch.toLowerCase();
-      result = result.filter((p) =>
-        p.paymentId.toLowerCase().includes(query) ||
-        p.orderNumber.toLowerCase().includes(query) ||
-        p.customerName.toLowerCase().includes(query) ||
-        p.customerEmail.toLowerCase().includes(query)
-      );
-    }
-    if (statusFilter !== "All") {
-      result = result.filter((p) => p.paymentStatus === statusFilter);
-    }
-    if (methodFilter !== "All") {
-      result = result.filter((p) => p.paymentMethod === methodFilter);
-    }
-    if (orderFilter) {
-      result = result.filter((p) =>
-        p.orderNumber.toLowerCase().includes(orderFilter.toLowerCase())
-      );
-    }
-    if (customerFilter) {
-      result = result.filter((p) =>
-        p.customerName.toLowerCase().includes(customerFilter.toLowerCase())
-      );
-    }
-    if (amountMin) {
-      const min = parseFloat(amountMin);
-      if (!isNaN(min)) result = result.filter((p) => p.amount >= min);
-    }
-    if (amountMax) {
-      const max = parseFloat(amountMax);
-      if (!isNaN(max)) result = result.filter((p) => p.amount <= max);
-    }
-    return result;
-  }, [payments, debouncedSearch, statusFilter, methodFilter, orderFilter, customerFilter, amountMin, amountMax]);
-
-  const totalFilteredCount = filteredPayments.length;
-  const paginatedPayments = useMemo(
-    () => filteredPayments.slice((page - 1) * limit, page * limit),
-    [filteredPayments, page, limit]
-  );
+  // Get total count from API
+  const totalCount = useSelector(selectPaymentsTotal);
+  
+  // Use payments directly (already paginated from API)
+  const paginatedPayments = payments;
 
   // Export handler
   const handleExport = () => {
     const headers = ["Payment ID", "Order", "Customer", "Amount", "Method", "Status", "Date"];
-    const rows = filteredPayments.map(p => [
+    const rows = paginatedPayments.map(p => [
       p.paymentId,
       p.orderNumber,
       p.customerName,
@@ -199,17 +173,17 @@ const PaymentManagement: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Stats computed from loaded data
-  const totalCollected = filteredPayments
+  // Stats computed from current page
+  const totalCollected = paginatedPayments
     .filter((p) => p.paymentStatus === "Success")
     .reduce((sum, p) => sum + p.amount, 0);
-  const successRate = filteredPayments.length > 0
-    ? ((filteredPayments.filter((p) => p.paymentStatus === "Success").length / filteredPayments.length) * 100).toFixed(1)
+  const successRate = paginatedPayments.length > 0
+    ? ((paginatedPayments.filter((p) => p.paymentStatus === "Success").length / paginatedPayments.length) * 100).toFixed(1)
     : "0";
-  const pendingCod = filteredPayments
+  const pendingCod = paginatedPayments
     .filter((p) => p.paymentMethod === "COD" && p.paymentStatus === "Pending")
     .reduce((sum, p) => sum + p.amount, 0);
-  const refundedAmount = filteredPayments
+  const refundedAmount = paginatedPayments
     .filter((p) => p.paymentStatus === "Refunded")
     .reduce((sum, p) => sum + p.amount, 0);
 
@@ -225,32 +199,29 @@ const PaymentManagement: React.FC = () => {
         </p>
       </div>
 
-      {/* --- TOP NAVIGATION --- */}
-      <nav className="flex items-center gap-1 bg-white p-1.5 border border-[#EEEEEE] rounded-2xl w-fit shadow-sm overflow-x-auto no-scrollbar">
-        <NavTab id="dashboard" active={currentView} label="Overview" icon={<LayoutDashboard size={14} />} onClick={setCurrentView} />
-        <NavTab id="payments" active={currentView} label="Payments" icon={<ListOrdered size={14} />} onClick={setCurrentView} />
-        <NavTab id="refunds" active={currentView} label="Refunds" icon={<Undo2 size={14} />} onClick={setCurrentView} />
-        <NavTab id="cod" active={currentView} label="COD" icon={<HandCoins size={14} />} onClick={setCurrentView} />
-        <NavTab id="settlements" active={currentView} label="Settlements" icon={<Landmark size={14} />} onClick={setCurrentView} />
-        <NavTab id="disputes" active={currentView} label="Disputes" icon={<ShieldCheck size={14} />} onClick={setCurrentView} />
-      </nav>
-
-      {/* --- RENDER VIEWS --- */}
-      <main className="min-h-[60vh]">
+      {/* --- COMBINED: TABS + CONTENT --- */}
+      <div className="bg-white rounded-2xl border border-[#EEEEEE] shadow-sm overflow-hidden">
+        <nav className="flex items-center gap-1 p-3 border-b border-[#EEEEEE] overflow-x-auto no-scrollbar">
+          <NavTab id="dashboard" active={currentView} label="Overview" icon={<LayoutDashboard size={14} />} onClick={() => { setCurrentView("dashboard" as ViewType); }} />
+          <NavTab id="payments" active={currentView} label="Payments" icon={<ListOrdered size={14} />} onClick={() => { setCurrentView("payments" as ViewType); setSearchTerm(""); setStatusFilter("All"); setMethodFilter("All"); setPage(1); }} />
+          <NavTab id="refunds" active={currentView} label="Refunds" icon={<Undo2 size={14} />} onClick={() => { setCurrentView("refunds" as ViewType); setSearchTerm(""); setStatusFilter("Refunded"); setMethodFilter("All"); setPage(1); }} />
+          <NavTab id="cod" active={currentView} label="COD" icon={<HandCoins size={14} />} onClick={() => { setCurrentView("cod" as ViewType); setSearchTerm(""); setStatusFilter("All"); setMethodFilter("COD"); setPage(1); }} />
+        </nav>
+        <main className="min-h-[60vh]">
         {currentView === "dashboard" && (
           <DashboardView
             totalCollected={totalCollected}
             successRate={successRate}
             pendingCod={pendingCod}
             refundedAmount={refundedAmount}
-            payments={filteredPayments}
+            payments={paginatedPayments}
           />
         )}
 
         {currentView === "payments" && (
           <PaymentsListView
             payments={paginatedPayments}
-            totalCount={totalFilteredCount}
+            totalCount={totalCount}
             page={page}
             limit={limit}
             onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
@@ -286,11 +257,28 @@ const PaymentManagement: React.FC = () => {
           />
         )}
 
-        {currentView === "refunds" && <RefundsView payments={filteredPayments} />}
-        {currentView === "cod" && <CODView payments={filteredPayments} />}
-        {currentView === "settlements" && <SettlementsView totalCollected={totalCollected} />}
-        {currentView === "disputes" && <DisputesView />}
-      </main>
+        {currentView === "refunds" && (
+          <RefundsView
+            payments={paginatedPayments}
+            totalCount={totalCount}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+          />
+        )}
+        {currentView === "cod" && (
+          <CODView
+            payments={paginatedPayments}
+            totalCount={totalCount}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+          />
+        )}
+        </main>
+      </div>
 
       {/* --- PAYMENT DETAIL DRAWER --- */}
       {selectedPayment && (
@@ -332,7 +320,7 @@ const DashboardView = ({
   }, [payments]);
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500 p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Collected" value={`AED ${totalCollected.toLocaleString("en-IN")}`} trend="+12.5%" trendType="up" sub="This Month" />
         <StatCard label="Success Rate" value={`${successRate}%`} trend="+0.4%" trendType="up" sub="Gateway health" />
@@ -440,8 +428,7 @@ const PaymentsListView = ({
   const visibleEnd = totalCount === 0 ? 0 : Math.min((page - 1) * limit + payments.length, totalCount);
 
   return (
-  <div className="animate-in fade-in space-y-4">
-    <div className="bg-white rounded-2xl border border-[#EEEEEE] shadow-sm overflow-hidden">
+  <div className="animate-in fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 gap-4 bg-white border-b border-[#EEEEEE]">
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -706,7 +693,7 @@ const PaymentsListView = ({
       </div>
 
       {/* Pagination */}
-      <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
+      <div className="p-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
         <div className="flex items-center gap-4">
           <div className="text-[11px] text-[#A1A1AA] font-medium">
             Showing {visibleStart}-{visibleEnd} of {totalCount} transactions
@@ -740,7 +727,6 @@ const PaymentsListView = ({
           </button>
         </div>
       </div>
-    </div>
   </div>
   );
 };
@@ -801,7 +787,7 @@ const PaymentDetailDrawer = ({
         <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
           {activeTab === "summary" && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DetailBox label="Order Total" value={`AED ${payment.amount.toLocaleString("en-IN")}`} icon={<Receipt size={14} />} />
                 <DetailBox label="Payment Method" value={payment.paymentMethod} icon={<Wallet size={14} />} />
                 <DetailBox label="Order" value={payment.orderNumber} icon={<Landmark size={14} />} />
@@ -872,10 +858,44 @@ const PaymentDetailDrawer = ({
 };
 
 /* ── SUB-VIEWS ── */
-const CODView = ({ payments }: { payments: Payment[] }) => {
-  const codPayments = payments.filter((p) => p.paymentMethod === "COD");
+const CODView = ({
+  payments,
+  totalCount,
+  page,
+  limit,
+  onPageChange,
+  onLimitChange,
+}: {
+  payments: Payment[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  onPageChange: (p: number) => void;
+  onLimitChange: (limit: number) => void;
+}) => {
+  const dispatch = useDispatch();
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const visibleStart = totalCount === 0 ? 0 : (page - 1) * limit + 1;
+  const visibleEnd = totalCount === 0 ? 0 : Math.min((page - 1) * limit + payments.length, totalCount);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+
+  const codStatuses = [
+    { value: "PENDING", label: "Pending" },
+    { value: "SUCCESS", label: "Collected" },
+    { value: "FAILED", label: "Failed" },
+  ];
+
+  const handleStatusSave = (paymentId: number) => {
+    if (!selectedStatus) return;
+    dispatch(paymentsActions.updatePaymentStatusRequest({ id: paymentId, status: selectedStatus }));
+    setEditingId(null);
+    setSelectedStatus("");
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-[#EEEEEE] shadow-sm overflow-hidden animate-in fade-in">
+    <div className="animate-in fade-in">
       <table className="w-full text-left">
         <thead className="bg-[#FAFAFA] border-b border-[#EEEEEE]">
           <tr className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">
@@ -887,15 +907,48 @@ const CODView = ({ payments }: { payments: Payment[] }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EEEEEE]">
-          {codPayments.length > 0 ? (
-            codPayments.map((p) => (
+          {payments.length > 0 ? (
+            payments.map((p) => (
               <tr key={p.id} className="text-sm group hover:bg-[#FAFAFA] transition-colors">
                 <td className="px-6 py-4 font-mono text-xs font-bold">{p.orderNumber}</td>
                 <td className="px-6 py-4 text-xs">{p.customerName}</td>
                 <td className="px-6 py-4 font-mono font-bold">AED {p.amount.toLocaleString("en-IN")}</td>
                 <td className="px-6 py-4"><PaymentStatusBadge status={p.paymentStatus} /></td>
                 <td className="px-6 py-4 text-right">
-                  <button className="px-4 py-1.5 bg-black text-white rounded-lg text-[10px] font-bold shadow-sm">Mark Collected</button>
+                  {editingId === p.id ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <select
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="px-2 py-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-[11px] font-medium outline-none focus:border-[#D4D4D8]"
+                      >
+                        <option value="">Select status</option>
+                        {codStatuses.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleStatusSave(p.id)}
+                        disabled={!selectedStatus}
+                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(null); setSelectedStatus(""); }}
+                        className="px-3 py-1.5 bg-[#F4F4F5] text-[#71717A] rounded-lg text-[10px] font-bold hover:bg-[#E4E4E7] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setEditingId(p.id); setSelectedStatus(""); }}
+                      className="px-4 py-1.5 bg-black text-white rounded-lg text-[10px] font-bold shadow-sm hover:bg-[#333] transition-colors"
+                    >
+                      Update Status
+                    </button>
+                  )}
                 </td>
               </tr>
             ))
@@ -906,14 +959,67 @@ const CODView = ({ payments }: { payments: Payment[] }) => {
           )}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      <div className="p-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
+        <div className="flex items-center gap-4">
+          <div className="text-[11px] text-[#A1A1AA] font-medium">
+            Showing {visibleStart}-{visibleEnd} of {totalCount} COD orders
+          </div>
+          <select
+            value={limit}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+            className="p-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-xs outline-none focus:border-[#D4D4D8]"
+          >
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+            <option value={50}>50 / page</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-xs font-bold px-2">Page {page} of {totalPages}</span>
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages}
+            className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 
-const RefundsView = ({ payments }: { payments: Payment[] }) => {
-  const refunded = payments.filter((p) => p.paymentStatus === "Refunded");
+const RefundsView = ({
+  payments,
+  totalCount,
+  page,
+  limit,
+  onPageChange,
+  onLimitChange,
+}: {
+  payments: Payment[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  onPageChange: (p: number) => void;
+  onLimitChange: (limit: number) => void;
+}) => {
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const visibleStart = totalCount === 0 ? 0 : (page - 1) * limit + 1;
+  const visibleEnd = totalCount === 0 ? 0 : Math.min((page - 1) * limit + payments.length, totalCount);
+
   return (
-    <div className="bg-white rounded-2xl border border-[#EEEEEE] shadow-sm overflow-hidden animate-in fade-in">
+    <div className="animate-in fade-in">
       <table className="w-full text-left">
         <thead className="bg-[#FAFAFA] border-b border-[#EEEEEE]">
           <tr className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">
@@ -924,8 +1030,8 @@ const RefundsView = ({ payments }: { payments: Payment[] }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EEEEEE]">
-          {refunded.length > 0 ? (
-            refunded.map((p) => (
+          {payments.length > 0 ? (
+            payments.map((p) => (
               <tr key={p.id} className="text-sm group hover:bg-[#FAFAFA] transition-colors">
                 <td className="px-6 py-4 font-mono text-xs font-bold">{p.paymentId}</td>
                 <td className="px-6 py-4 font-mono text-xs text-blue-600 font-bold">{p.orderNumber}</td>
@@ -940,11 +1046,48 @@ const RefundsView = ({ payments }: { payments: Payment[] }) => {
           )}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      <div className="p-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
+        <div className="flex items-center gap-4">
+          <div className="text-[11px] text-[#A1A1AA] font-medium">
+            Showing {visibleStart}-{visibleEnd} of {totalCount} refunds
+          </div>
+          <select
+            value={limit}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+            className="p-1.5 bg-[#F9F9F9] border border-[#EEEEEE] rounded-lg text-xs outline-none focus:border-[#D4D4D8]"
+          >
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={20}>20 / page</option>
+            <option value={50}>50 / page</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-xs font-bold px-2">Page {page} of {totalPages}</span>
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages}
+            className="p-2 border border-[#EEEEEE] rounded-lg hover:bg-[#FAFAFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 
-const SettlementsView = ({ totalCollected }: { totalCollected: number }) => (
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const SettlementsView = ({ totalCollected }: { totalCollected: number }) => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in">
     <div className="p-6 bg-white border border-[#EEEEEE] rounded-2xl shadow-sm">
       <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Next Payout</p>
@@ -964,7 +1107,8 @@ const SettlementsView = ({ totalCollected }: { totalCollected: number }) => (
   </div>
 );
 
-const DisputesView = () => (
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const DisputesView = () => (
   <div className="bg-white p-12 border border-[#EEEEEE] rounded-2xl shadow-sm text-center space-y-4 animate-in fade-in">
     <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
       <ShieldCheck size={40} />

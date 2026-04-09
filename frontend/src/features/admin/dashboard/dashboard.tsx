@@ -19,7 +19,6 @@ import { selectOrders, selectOrdersStatus } from "../orders/ordersSlice";
 import { selectProducts, selectProductsStatus } from "../products/productsSlice";
 import { productsActions } from "../products/productsSlice";
 import { selectPayments } from "../payments/paymentsSlice";
-import { paymentsActions } from "../payments/paymentsSlice";
 import { selectReviews, selectReviewsTotal } from "../reviews/reviewsSlice";
 import { reviewsActions } from "../reviews/reviewsSlice";
 import type { Order } from "../orders/ordersSlice";
@@ -57,9 +56,6 @@ const Dashboard: React.FC = () => {
     // Removed orders fetch with limit=1000 as per requirements
     if (products.length === 0 && productsStatus !== "loading") {
       dispatch(productsActions.fetchProductsRequest({ limit: 20, page: 1 }));
-    }
-    if (payments.length === 0) {
-      dispatch(paymentsActions.fetchPaymentsRequest({ limit: 10, page: 1 }));
     }
     if (reviews.length === 0) {
       dispatch(reviewsActions.fetchReviewsRequest({ limit: 10, page: 1 }));
@@ -553,7 +549,7 @@ const RecentOrderRow = ({ order }: { order: Order }) => {
         <p className="font-mono text-[10px] font-bold text-[#71717A]">{order.orderNumber}</p>
       </td>
       <td className="px-5 py-4">
-        <p className="font-bold truncate max-w-[180px]">{itemNames}</p>
+        <p className="font-bold truncate max-w-[120px] sm:max-w-[180px]">{itemNames}</p>
       </td>
       <td className="px-5 py-4 text-[#A1A1AA]">
         {new Date(order.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}

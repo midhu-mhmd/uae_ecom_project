@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Download,
-  RotateCcw,
   MessageSquare,
   ListFilter,
   Columns3,
@@ -21,6 +20,7 @@ import {
   Package,
 } from "lucide-react";
 
+import { dashboardApi } from "../dashboard/dashboardApi";
 import {
   reviewsActions,
   selectReviews,
@@ -212,13 +212,34 @@ const ReviewsManagement: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Stats from current data
-  const avgRating =
-    displayedReviews.length > 0
+  const [reviewCounts, setReviewCounts] = useState({
+    total_reviews: 0,
+    avg_rating: 0,
+    visible: 0,
+    hidden: 0,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    dashboardApi.fetchReviewsCount()
+      .then((res: any) => {
+        if (mounted) {
+          setReviewCounts(res.data || res);
+        }
+      })
+      .catch(() => { /* silent */ });
+    return () => { mounted = false; };
+  }, []);
+
+  // Stats from reviewCounts or fallback to current data
+  const totalReviewsCount = reviewCounts.total_reviews || totalCount;
+  const avgRatingDisplay = reviewCounts.avg_rating > 0
+    ? reviewCounts.avg_rating.toFixed(1)
+    : (displayedReviews.length > 0
       ? (displayedReviews.reduce((sum, r) => sum + r.rating, 0) / displayedReviews.length).toFixed(1)
-      : "0.0";
-  const visibleCount = displayedReviews.filter((r) => r.isVisible).length;
-  const hiddenCount = displayedReviews.length - visibleCount;
+      : "0.0");
+  const visibleCount = reviewCounts.visible || displayedReviews.filter((r) => r.isVisible).length;
+  const hiddenCount = reviewCounts.hidden || (displayedReviews.length - visibleCount);
 
   return (
     <div className="min-h-screen w-full space-y-6 text-[#18181B] bg-[#FDFDFD]">
@@ -232,13 +253,13 @@ const ReviewsManagement: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStat
           label="Total Reviews"
-          value={`${totalCount}`}
+          value={`${totalReviewsCount}`}
           sub="All time"
           icon={<MessageSquare size={16} className="text-[#A1A1AA]" />}
         />
         <QuickStat
           label="Avg Rating"
-          value={avgRating}
+          value={avgRatingDisplay}
           sub="Out of 5.0"
           icon={<Star size={16} className="text-amber-400" />}
         />
@@ -463,7 +484,7 @@ const ReviewsManagement: React.FC = () => {
 
                     {isVisible("product") && (
                       <td className="px-5 py-4">
-                        <p className="text-xs font-bold truncate max-w-[180px]">{r.productName}</p>
+                        <p className="text-xs font-bold truncate max-w-[120px] sm:max-w-[180px]">{r.productName}</p>
                         <p className="text-[10px] text-[#A1A1AA]">ID: {r.productId}</p>
                       </td>
                     )}
@@ -497,7 +518,7 @@ const ReviewsManagement: React.FC = () => {
 
                     {isVisible("comment") && (
                       <td className="px-5 py-4">
-                        <p className="text-xs text-[#52525B] truncate max-w-[240px]">
+                        <p className="text-xs text-[#52525B] truncate max-w-[150px] sm:max-w-[240px]">
                           {r.comment || <span className="italic text-[#A1A1AA]">No comment</span>}
                         </p>
                       </td>
@@ -594,7 +615,7 @@ const ReviewsManagement: React.FC = () => {
         </div>
 
         {/* --- PAGINATION CONTROLS --- */}
-        <div className="p-4 border-t border-[#EEEEEE] flex items-center justify-between bg-white">
+        <div className="p-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
           <div className="flex items-center gap-4">
             <div className="text-[11px] text-[#A1A1AA] font-medium">
               Showing {visibleStart}-{visibleEnd} of {totalCount} reviews
@@ -746,7 +767,7 @@ const ReviewDetailPanel = ({
         </div>
 
         {/* Product & Customer */}
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Product</p>
             <p className="text-sm font-bold">{review.productName}</p>
@@ -780,7 +801,7 @@ const ReviewDetailPanel = ({
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-[#A1A1AA] border-b border-[#EEEEEE] pb-2 mb-3">
             Activity
           </h4>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest">Created</p>
               <p className="text-sm font-bold">
