@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks";
 import { useDeliveryEstimation } from "../../hooks/useDeliveryEstimation";
 import { selectCartItems, selectCartTotal, clearCart } from "../admin/cart/cartSlice";
-import { ordersApi, type CheckoutSummaryResponse } from "../admin/orders/ordersApi";
+import { ordersApi, type CheckoutSummaryResponse, type DeliverySlotDto } from "../admin/orders/ordersApi";
 import { customersApi, type AddressDto } from "../admin/customers/customersApi";
 import {
   MapPin, CreditCard, Truck, ArrowLeft, Loader2,
@@ -12,18 +12,13 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../../components/ui/Toast";
+import BackendData from "../../components/ui/BackendData";
+import GoogleMapPicker, { type MapPickerResult } from "../../components/ui/GoogleMapPicker";
 import { MdDeliveryDining } from "react-icons/md";
 import useLanguageToggle from "../../hooks/useLanguageToggle";
 import { profileApi } from "./profileApi";
 import { setUser } from "../auth/authSlice";
 import { api, tokenManager } from "../../services/api";
-
-/* ─── Delivery Slot Options ─── */
-const DELIVERY_SLOTS = [
-  { value: "9AM-12PM", key: "delivery.slots.morning" },
-  { value: "2PM-5PM", key: "delivery.slots.afternoon" },
-  { value: "6PM-9PM", key: "delivery.slots.evening" },
-];
 
 // ✅ Updated Tip Presets
 const TIP_PRESETS = [0, 1, 3, 5];
@@ -65,7 +60,7 @@ const parseAmount = (value?: string | number | null) => {
 const normalizeCouponCode = (value?: string | null) =>
   String(value ?? "").trim().toUpperCase();
 
-const normalizeAvailableCoupon = (raw: any, index: number): AvailableCoupon | null => {
+const normalizeAvailableCoupon = (raw: any, index: number, t: any): AvailableCoupon | null => {
   const code = normalizeCouponCode(raw?.coupon_code ?? raw?.code ?? raw?.promo_code);
 
   if (!code) return null;
@@ -86,10 +81,10 @@ const normalizeAvailableCoupon = (raw: any, index: number): AvailableCoupon | nu
     code,
     title: raw?.title ?? raw?.name ?? code,
     description:
-      raw?.description ??
-      raw?.message ??
-      raw?.short_description ??
-      (badge ? `Apply ${badge.toLowerCase()} to this order.` : "Available coupon"),
+      raw?.description ||
+      raw?.message ||
+      raw?.short_description ||
+      (badge ? t("coupons.applyToOrder", { badge: badge.toLowerCase() }) : t("coupons.availableCoupon")),
     badge: badge || undefined,
   };
 };
@@ -144,9 +139,12 @@ const CheckoutPage: React.FC = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [deliverySlot, setDeliverySlot] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
+  const [deliverySlot, setDeliverySlot] = useState<number | "">("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<DeliverySlotDto[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
 
   const [tipAmount, setTipAmount] = useState(0);
   const [customTip, setCustomTip] = useState<string>("");
@@ -185,7 +183,8 @@ const CheckoutPage: React.FC = () => {
   const [addressForm, setAddressForm] = useState({
     label: "home", full_name: "", phone_number: "", building_name: "",
     flat_villa_number: "", street_address: "", area: "", city: "",
-    emirate: "", country: "AE", address_type: "home"
+    emirate: "", country: "AE", address_type: "home",
+    latitude: null as number | null, longitude: null as number | null,
   });
   const [addrCountryCode, setAddrCountryCode] = useState("+971");
   const [addrDropdownOpen, setAddrDropdownOpen] = useState(false);
@@ -298,7 +297,7 @@ const CheckoutPage: React.FC = () => {
 
             return true;
           })
-          .map((coupon: any, index: number) => normalizeAvailableCoupon(coupon, index))
+          .map((coupon: any, index: number) => normalizeAvailableCoupon(coupon, index, t))
           .filter(Boolean) as AvailableCoupon[];
 
         if (isMounted) {
@@ -307,7 +306,7 @@ const CheckoutPage: React.FC = () => {
       } catch (error: any) {
         if (isMounted) {
           setCouponsError(
-            getApiErrorMessage(error, "Unable to load available coupons right now.")
+            getApiErrorMessage(error, t("coupons.unableToLoad", "Unable to load available coupons right now."))
           );
         }
       } finally {
@@ -334,9 +333,49 @@ const CheckoutPage: React.FC = () => {
     ? parseAmount(checkoutSummary.final_total)
     : Number((cartTotal + effectiveTip).toFixed(2));
 
-  // Min date = earliest possible delivery (based on tier estimation)
-  const deliveryDaysNeeded = estimation?.max_delivery_days || 1;
-  const minDate = new Date(Date.now() + deliveryDaysNeeded * 86400000).toISOString().split("T")[0];
+  // Min date = earliest delivery date from estimation, or UAE today as fallback
+  const uaeTodayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
+  const minDate = estimation?.estimated_delivery_date ?? uaeTodayDate;
+
+  // ─── Fetch Available Slots ───
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSlots = async () => {
+      if (!deliveryDate) return;
+
+      setLoadingSlots(true);
+      setSlotsError(null);
+
+      try {
+        const response = await ordersApi.getAvailableSlots(deliveryDate);
+        if (isMounted) {
+          setAvailableSlots(response.available_slots);
+          // If current slot is not in the new list, clear it
+          if (deliverySlot && !response.available_slots.find(s => s.id === deliverySlot)) {
+            setDeliverySlot("");
+          }
+          // Auto-select first slot if none selected? Optional.
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          const msg = getApiErrorMessage(error, "Unable to load delivery slots.");
+          setSlotsError(msg);
+          setAvailableSlots([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingSlots(false);
+        }
+      }
+    };
+
+    void loadSlots();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deliveryDate]);
 
   // ─── Add Address Handler ───
   const fetchCheckoutSummary = async () => {
@@ -359,7 +398,7 @@ const CheckoutPage: React.FC = () => {
     setSummaryLoading(true);
     setSummaryError(null);
 
-    try {
+      try {
       const summary = await ordersApi.checkoutSummary({
         address_id: selectedAddressId,
         coupon_code: appliedCouponCode || undefined,
@@ -384,14 +423,14 @@ const CheckoutPage: React.FC = () => {
         setCheckoutSummary(null);
         setSummaryUnsupported(true);
         setSummaryError(
-          "This server does not support checkout summary yet. You can still continue to place the order."
+          t("alerts.summaryUnsupported", "This server does not support checkout summary yet. You can still continue to place the order.")
         );
         return "unsupported" as const;
       }
 
       const message = getApiErrorMessage(
         error,
-        "Unable to load the checkout summary right now."
+        t("alerts.summaryUpdateFailedShort", "Unable to load the checkout summary right now.")
       );
 
       setSummaryError(message);
@@ -426,7 +465,7 @@ const CheckoutPage: React.FC = () => {
     if (!normalizedCoupon) {
       setCouponFeedback({
         type: "error",
-        message: "Enter a coupon code to apply it.",
+        message: t("coupons.enterToApply", "Enter a coupon code to apply it."),
       });
       return;
     }
@@ -459,7 +498,7 @@ const CheckoutPage: React.FC = () => {
     } catch (error: any) {
       const message = getApiErrorMessage(
         error,
-        "Unable to validate this coupon right now."
+        t("alerts.couponValidationFailed", "Unable to validate this coupon right now.")
       );
 
       setAppliedCouponCode("");
@@ -493,7 +532,8 @@ const CheckoutPage: React.FC = () => {
       setAddressForm({
         label: "home", full_name: "", phone_number: "", building_name: "",
         flat_villa_number: "", street_address: "", area: "", city: "",
-        emirate: "", country: "AE", address_type: "home"
+        emirate: "", country: "AE", address_type: "home",
+        latitude: null, longitude: null,
       });
       setAddressErrors({});
     } catch (err: any) {
@@ -526,13 +566,18 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (!deliverySlot) {
+      toast.show("Please select a preferred delivery slot", "error");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const latestSummary = await fetchCheckoutSummary();
 
       if (latestSummary === null) {
         toast.show(
-          summaryError || "Unable to confirm your final total right now. Please try again.",
+          summaryError || t("alerts.summaryUpdateFailed", "Unable to confirm your final total right now. Please try again."),
           "error"
         );
         return;
@@ -644,7 +689,7 @@ const CheckoutPage: React.FC = () => {
                     <button
                       key={addr.id}
                       onClick={() => setSelectedAddressId(addr.id)}
-                      className={`relative ${isArabic ? 'text-right' : 'text-left'} p-4 rounded-2xl border-2 transition-all duration-200 ${selectedAddressId === addr.id
+                      className={`relative text-left p-4 rounded-2xl border-2 transition-all duration-200 ${selectedAddressId === addr.id
                         ? "border-cyan-500 bg-cyan-50/50 ring-2 ring-cyan-500/20 shadow-md"
                         : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
                         }`}
@@ -671,15 +716,23 @@ const CheckoutPage: React.FC = () => {
                         )}
                       </div>
 
-                      <p className="text-sm font-bold text-slate-900 mb-0.5">{addr.full_name}</p>
+                      <p className="text-sm font-bold text-slate-900 mb-0.5">
+                        <BackendData value={addr.full_name} />
+                      </p>
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        {[addr.flat_villa_number, addr.building_name, addr.street_address]
-                          .filter(Boolean).join(", ")}
+                        <BackendData
+                          value={[addr.flat_villa_number, addr.building_name, addr.street_address]
+                            .filter(Boolean).join(", ")}
+                        />
                       </p>
                       <p className="text-xs text-slate-400">
-                        {[addr.area, addr.city, addr.emirate].filter(Boolean).join(", ")}
+                        <BackendData
+                          value={[addr.area, addr.city, addr.emirate].filter(Boolean).join(", ")}
+                        />
                       </p>
-                      <p className="text-xs text-slate-400 mt-1">{addr.phone_number}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        <BackendData value={addr.phone_number} />
+                      </p>
 
                       {/* Selected state is indicated by border + ring; no extra badge to avoid overlap with Default */}
                     </button>
@@ -708,10 +761,29 @@ const CheckoutPage: React.FC = () => {
                   className="overflow-hidden"
                 >
                   <div className="border border-slate-100 rounded-2xl p-5 space-y-4 mt-3 bg-slate-50/50">
+                    {/* Google Maps picker */}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t("fields.pinLocation", "Pin Your Location")}</p>
+                      <GoogleMapPicker
+                        onSelect={(result: MapPickerResult) => {
+                          setAddressForm((prev) => ({
+                            ...prev,
+                            latitude: result.lat,
+                            longitude: result.lng,
+                            ...(result.street ? { street_address: result.street } : {}),
+                            ...(result.area ? { area: result.area } : {}),
+                            ...(result.city ? { city: result.city } : {}),
+                            ...(result.emirate
+                              ? { emirate: result.emirate.toLowerCase().replace(/\s+/g, "_") }
+                              : {}),
+                          }));
+                        }}
+                      />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* Address Type */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Address Type</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t("fields.addressType", "Address Type")}</label>
                         <div className="relative">
                           <select
                             value={addressForm.address_type}
@@ -759,7 +831,7 @@ const CheckoutPage: React.FC = () => {
                       ))}
                       {/* Phone with country flag selector */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Phone</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t("fields.phone", "Phone")}</label>
                         <div className="flex gap-2">
                           <div className="relative" ref={addrDropdownRef}>
                             <button
@@ -814,7 +886,7 @@ const CheckoutPage: React.FC = () => {
 
                       {/* Emirate Dropdown */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Emirate</label>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t("fields.emirate", "Emirate")}</label>
                         <div className="relative">
                           <select
                             value={addressForm.emirate}
@@ -887,28 +959,28 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Truck size={16} className="text-amber-600" />
                     <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">
-                      Estimated Delivery Window
+                      {t("delivery.window", "Estimated Delivery Window")}
                     </p>
                   </div>
                   <p className="text-sm font-black text-slate-900">
-                    {estimation.max_delivery_days} {estimation.max_delivery_days === 1 ? "day" : "days"} delivery time
+                    {estimation.max_delivery_days === 0 ? t("delivery.sameDay", "Same day delivery") : estimation.max_delivery_days === 1 ? t("delivery.dayDelivery", { count: 1, defaultValue: "1 day delivery time" }) : t("delivery.daysDelivery", { count: estimation.max_delivery_days, defaultValue: `${estimation.max_delivery_days} days delivery time` })}
                   </p>
                   <p className="text-xs text-amber-700">
-                    Minimum delivery date is {minDate === new Date(Date.now() + 86400000).toISOString().split("T")[0] ? "tomorrow" : `in ${deliveryDaysNeeded} days`}
+                    {estimation.max_delivery_days === 0 ? t("delivery.availableToday", "Available for delivery today") : estimation.max_delivery_days === 1 ? t("delivery.minDateTomorrow", "Minimum delivery date is tomorrow") : t("delivery.minDateInDays", { count: estimation.max_delivery_days, defaultValue: `Minimum delivery date is in ${estimation.max_delivery_days} days` })}
                   </p>
                 </div>
 
                 {/* Items Breakdown */}
                 {estimation.items_breakdown && estimation.items_breakdown.length > 0 && (
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Products Delivery Times</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">{t("delivery.productsDeliveryTimes", "Products Delivery Times")}</p>
                     <div className="space-y-1.5">
                       {estimation.items_breakdown.map((item: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-xs">
-                          <span className="text-slate-700 font-medium truncate flex-1">{item.product_name || `Product ${idx + 1}`}</span>
-                          <span className={`text-slate-500 ${isArabic ? 'mr-2' : 'ml-2'}`}>Qty: {item.quantity}</span>
+                          <span className="text-slate-700 font-medium truncate flex-1">{item.product_name || t("delivery.fallbackProductName", { index: idx + 1, defaultValue: `Product ${idx + 1}` })}</span>
+                           <span className={`text-slate-500 ${isArabic ? 'mr-2' : 'ml-2'}`}>{t("delivery.qty", { count: item.quantity, defaultValue: `Qty: ${item.quantity}` })}</span>
                           <span className={`${isArabic ? 'mr-2' : 'ml-2'} px-2.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold`}>
-                            {item.delivery_days}d
+                            {t("delivery.daysShort", { count: item.delivery_days, defaultValue: `${item.delivery_days}d` })}
                           </span>
                         </div>
                       ))}
@@ -928,10 +1000,14 @@ const CheckoutPage: React.FC = () => {
                   type="date"
                   value={deliveryDate}
                   min={minDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && val < minDate) return;
+                    setDeliveryDate(val);
+                  }}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
                 />
-                <p className="text-[10px] text-slate-400">Earliest: {minDate}</p>
+                <p className="text-[10px] text-slate-400">Earliest: {estimationLoading ? "…" : minDate}</p>
               </div>
 
               {/* Slot */}
@@ -940,18 +1016,40 @@ const CheckoutPage: React.FC = () => {
                   <Clock size={12} /> {t("delivery.slot")}
                 </label>
                 <div className="relative">
-                  <select
-                    value={deliverySlot}
-                    onChange={(e) => setDeliverySlot(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
-                  >
-                    <option value="">{t("delivery.slot")}</option>
-                    {DELIVERY_SLOTS.map((s) => (
-                      <option key={s.value} value={s.value}>{t(s.key)}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} className={`absolute ${isArabic ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`} />
+                  {loadingSlots ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                      <Loader2 size={14} className="animate-spin text-cyan-600" />
+                      <span className="text-slate-500">{t("delivery.checkingSlots", "Checking slots...")}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={deliverySlot}
+                        onChange={(e) => setDeliverySlot(e.target.value ? parseInt(e.target.value) : "")}
+                        disabled={availableSlots.length === 0}
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm appearance-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all ${availableSlots.length === 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      >
+                        <option value="">
+                          {availableSlots.length === 0 ? t("delivery.noSlots", "No slots available") : t("delivery.selectSlot", "Select a slot")}
+                        </option>
+                        {availableSlots.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.start_time_display} - {s.end_time_display} ({s.name})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className={`absolute ${isArabic ? 'left-4' : 'right-4'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`} />
+                    </>
+                  )}
                 </div>
+                {availableSlots.length === 0 && !loadingSlots && !!deliveryDate && (
+                  <p className="text-[10px] font-bold text-rose-500 mt-1">
+                    {t("delivery.noSlotsForDate", "No available slots for this date. Please select a different date.")}
+                  </p>
+                )}
+                {slotsError && (
+                  <p className="text-[10px] font-bold text-rose-500 mt-1">{slotsError}</p>
+                )}
               </div>
             </div>
 
@@ -974,7 +1072,7 @@ const CheckoutPage: React.FC = () => {
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex gap-2">
                 <Info size={14} className="text-blue-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700">
-                  Delivery time based on <span className="font-bold">order quantity</span>. Larger orders may take longer due to fulfillment requirements.
+                  {t("delivery.fulfillmentHelper", "Delivery time based on order quantity. Larger orders may take longer due to fulfillment requirements.")}
                 </p>
               </div>
             )}
@@ -999,7 +1097,7 @@ const CheckoutPage: React.FC = () => {
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
-                  {val === 0 ? "No Tip" : `AED ${val}`}
+                  {val === 0 ? t("tip.noTip", "No Tip") : t("currency.aed", { value: val })}
                 </button>
               ))}
               <button
@@ -1039,7 +1137,7 @@ const CheckoutPage: React.FC = () => {
                           setCustomTip((currentVal + 0.5).toString());
                         }}
                         className="h-full px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 border-l border-slate-200 transition-colors flex items-center justify-center"
-                        title="Add 0.5 AED"
+                        title={t("tip.addPointFive", "Add 0.5 AED")}
                       >
                         <Plus size={16} />
                       </button>
@@ -1082,9 +1180,9 @@ const CheckoutPage: React.FC = () => {
                 <CreditCard size={20} className="text-slate-400" />
               </label>
 
-              {/* COD - Disabled / Coming Soon */}
+              {/* COD - Disabled / Not available for this order */}
               <div
-                className="relative flex items-center gap-4 p-4 border-2 rounded-2xl border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed select-none"
+                className="flex items-center gap-4 p-4 border-2 rounded-2xl border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed select-none"
               >
                 <input
                   type="radio"
@@ -1096,11 +1194,13 @@ const CheckoutPage: React.FC = () => {
                 <div className="flex-1">
                   <p className="font-bold text-slate-400">{t("payment.cod.title")}</p>
                   <p className="text-xs text-slate-400">{t("payment.cod.subtitle")}</p>
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">
+                    {t("payment.cod.unavailableForOrder", {
+                      defaultValue: "Not available for this order now.",
+                    })}
+                  </p>
                 </div>
                 <Truck size={20} className="text-slate-300" />
-                <span className="absolute top-2 right-3 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
               </div>
             </div>
           </section>
@@ -1114,7 +1214,7 @@ const CheckoutPage: React.FC = () => {
               {summaryLoading && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-cyan-700">
                   <Loader2 size={14} className="animate-spin" />
-                  Updating
+                  {t("summary.updating", "Updating")}
                 </span>
               )}
             </div>
@@ -1134,7 +1234,7 @@ const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={couponInput}
@@ -1146,13 +1246,13 @@ const CheckoutPage: React.FC = () => {
                     }
                   }}
                   placeholder={t("coupon.placeholder", { defaultValue: "Enter coupon code" })}
-                  className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm uppercase tracking-wide focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
+                  className="w-full sm:flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm uppercase tracking-wide focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
                 />
                 <button
                   type="button"
                   onClick={appliedCouponCode ? handleRemoveCoupon : () => void handleApplyCoupon()}
                   disabled={validatingCoupon}
-                  className={`px-4 py-3 rounded-xl text-sm font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${appliedCouponCode
+                  className={`w-full sm:w-auto sm:min-w-24 px-4 py-3 rounded-xl text-sm font-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap ${appliedCouponCode
                     ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
                     : "bg-cyan-600 text-white hover:bg-cyan-700"
                     }`}
@@ -1393,14 +1493,14 @@ const CheckoutPage: React.FC = () => {
                   <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs text-amber-800 font-medium">
-                      Verify your phone number to place an order. This helps prevent fake orders.
+                      {t("verifyPhone.helper", "Verify your phone number to place an order. This helps prevent fake orders.")}
                     </p>
                     <button
                       type="button"
                       onClick={() => { setVerifyOpen(true); setVerifyStep("input"); }}
                       className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-bold hover:bg-cyan-700"
                     >
-                      Verify Phone
+                      {t("verifyPhone.button", "Verify Phone")}
                     </button>
                   </div>
                 </div>
@@ -1409,7 +1509,7 @@ const CheckoutPage: React.FC = () => {
                 <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 flex gap-2">
                   <Info size={16} className="text-rose-600 shrink-0 mt-0.5" />
                   <p className="text-xs text-rose-700 font-medium">
-                    Please select a preferred delivery date to proceed with your order.
+                    {t("delivery.selectDateHint", "Please select a preferred delivery date to proceed with your order.")}
                   </p>
                 </div>
               )}
@@ -1443,9 +1543,9 @@ const CheckoutPage: React.FC = () => {
           >
             <div className="absolute inset-0 bg-black/50" onClick={() => setVerifyOpen(false)} />
             <div className="relative bg-white rounded-2xl border border-slate-200 w-full max-w-sm p-5 z-10">
-              <h3 className="text-sm font-black text-slate-900 mb-2">Verify Phone Number</h3>
+              <h3 className="text-sm font-black text-slate-900 mb-2">{t("verifyPhone.title", "Verify Phone Number")}</h3>
               <p className="text-xs text-slate-500 mb-3">
-                Only users with a verified phone can place orders.
+                {t("verifyPhone.subtitle", "Only users with a verified phone can place orders.")}
               </p>
               {verifyError && (
                 <div className="mb-3 p-2.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-medium">
@@ -1469,7 +1569,7 @@ const CheckoutPage: React.FC = () => {
                     <input
                       value={verifyPhone}
                       onChange={(e) => setVerifyPhone(e.target.value.replace(/[^\d]/g, ""))}
-                      placeholder={`${verifyReq.length} digits`}
+                      placeholder={t("fields.digits", { count: verifyReq.length, defaultValue: `${verifyReq.length} digits` })}
                       maxLength={verifyReq.length}
                       className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
                       inputMode="tel"
@@ -1507,31 +1607,31 @@ const CheckoutPage: React.FC = () => {
                     disabled={sendingOtp || !isVerifyPhoneValid}
                     className="w-full px-4 py-2.5 rounded-xl bg-cyan-600 text-white text-sm font-bold hover:bg-cyan-700 disabled:opacity-50"
                   >
-                    {sendingOtp ? "Sending..." : "Send OTP"}
+                    {sendingOtp ? t("verifyPhone.sending", "Sending...") : t("verifyPhone.sendOtp", "Send OTP")}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Enter OTP</label>
+                  <h4 className="text-xs font-bold text-slate-900">{t("fields.enterOtp", "Enter OTP")}</h4>
                   <input
                     value={verifyOtp}
                     onChange={(e) => setVerifyOtp(e.target.value.replace(/\D/g, ""))}
                     maxLength={6}
-                    placeholder="6 digits"
+                    placeholder={t("fields.digits", { count: 6, defaultValue: "6 digits" })}
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => setVerifyStep("input")}
-                      className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                      className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700"
                     >
-                      Edit Phone
+                      {t("fields.editPhone", "Edit Phone")}
                     </button>
                     <button
                       onClick={async () => {
                         setVerifyError(null);
                         if (verifyOtp.length < 6) {
-                          setVerifyError("Enter the 6-digit OTP.");
+                          setVerifyError(t("verifyPhone.otpError", "Enter the 6-digit OTP."));
                           return;
                         }
                         try {
@@ -1559,7 +1659,7 @@ const CheckoutPage: React.FC = () => {
                       disabled={verifyingOtp || verifyOtp.length < 6}
                       className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
                     >
-                      {verifyingOtp ? "Verifying..." : "Verify & Continue"}
+                      {verifyingOtp ? t("verifyPhone.verifying", "Verifying...") : t("verifyPhone.verifyAndContinue", "Verify & Continue")}
                     </button>
                   </div>
                 </div>

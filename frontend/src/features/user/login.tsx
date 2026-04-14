@@ -149,8 +149,11 @@ const Login: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     const isAdmin = user.role === "admin" || user.is_admin === true;
+    const isDeliveryBoy = user.role === "delivery_boy";
     if (isAdmin) {
       navigate("/admin/dashboard", { replace: true });
+    } else if (isDeliveryBoy) {
+      navigate("/delivery", { replace: true });
     } else {
       navigate("/", { replace: true });
     }
@@ -355,7 +358,7 @@ const Login: React.FC = () => {
                       <input
                         type="email"
                         required
-                          placeholder={t("auth.emailPlaceholder", "Email Address")}
+                        placeholder={t("auth.emailPlaceholder", "Email Address")}
                         value={localValue}
                         onFocus={() => setFocused("id")}
                         onBlur={() => setFocused(null)}
@@ -496,19 +499,19 @@ const Login: React.FC = () => {
             </div>
 
             <div className="mt-4">
-                <GoogleLogin
-                  onSuccess={(credentialResponse) => {
-                    if (credentialResponse.credential) {
-                      dispatch(googleLogin({
-                        credential: credentialResponse.credential,
-                      }));
-                    }
-                  }}
-                  onError={() => {
-                    dispatch(authError("Google sign-in was cancelled or failed." as any));
-                  }}
-                  width="100%"
-                />
+              <GoogleLogin
+                onSuccess={(credentialResponse) => {
+                  if (credentialResponse.credential) {
+                    dispatch(googleLogin({
+                      credential: credentialResponse.credential,
+                    }));
+                  }
+                }}
+                onError={() => {
+                  dispatch(authError("Google sign-in was cancelled or failed." as any));
+                }}
+                width="100%"
+              />
             </div>
           </div>
         </div>

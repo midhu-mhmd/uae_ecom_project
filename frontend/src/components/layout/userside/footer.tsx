@@ -17,7 +17,7 @@ import {
 
 
 import { useTranslation } from "react-i18next";
-import simakLogo from "../../../assets/SIMAK FRESH FINAL SVG-01.svg";
+import simakLogo from "../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png";
 
 /* ── Component ── */
 const Footer: React.FC = () => {
@@ -225,7 +225,7 @@ const Footer: React.FC = () => {
                     </div>
 
                     <p className="text-xs text-cyan-200/60">
-                        © {year} SIMAK FRESH. {t("footer.rights")}
+                        © {year} {t('brand.name')}. {t("footer.rights")}
                     </p>
 
                     <div className="flex items-center gap-4">

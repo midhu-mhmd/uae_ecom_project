@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import { logout } from '../../../features/auth/authSlice';
 import {
   LayoutDashboard,
@@ -19,12 +20,14 @@ import {
   ScanLine,
   Tag,
   Image as BannersIcon,
-  Settings
+  Settings,
+  Truck,
+  AlertOctagon
 } from 'lucide-react';
 
 import ScannerModal from './ScannerModal';
 import AdminNotificationsDropdown from '../../../features/admin/notifications/AdminNotificationsDropdown';
-import simakLogo from '../../../assets/SIMAK FRESH FINAL SVG-01.svg';
+import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
 
 
 interface NavItem {
@@ -34,8 +37,18 @@ interface NavItem {
 }
 
 const AdminLayout: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (i18n.language !== 'en') {
+      i18n.changeLanguage('en');
+    }
+    document.documentElement.lang = 'en';
+    document.documentElement.dir = 'ltr';
+    document.documentElement.classList.remove('rtl');
+  }, [i18n]);
   const { user } = useSelector((state: any) => state.auth); // Using any for state to avoid strict check if RootState import is tricky, but preferably use RootState if I import it. I'll use any as quick fix or try to import RootState. I'll use any for now to be safe against broken imports. user is any anyway.
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,6 +83,8 @@ const AdminLayout: React.FC = () => {
     { label: 'Banners', path: '/admin/banners', icon: <BannersIcon size={18} strokeWidth={1.5} /> },
     { label: 'Notifications', path: '/admin/notifications', icon: <Bell size={18} strokeWidth={1.5} /> },
     { label: 'Support', path: '/admin/support', icon: <Headphones size={18} strokeWidth={1.5} /> },
+    { label: 'Delivery Boys', path: '/admin/delivery/boys', icon: <Truck size={18} strokeWidth={1.5} /> },
+    { label: 'Cancellations', path: '/admin/delivery/cancellations', icon: <AlertOctagon size={18} strokeWidth={1.5} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={18} strokeWidth={1.5} /> },
   ];
 
@@ -98,12 +113,12 @@ const AdminLayout: React.FC = () => {
             <div className="w-8 h-8 bg-white flex items-center justify-center rounded overflow-hidden">
               <img
                 src={simakLogo}
-                alt="SIMAK FRESH"
+                alt={t('brand.name')}
                 className="h-7 w-7 object-contain"
               />
             </div>
             {(isSidebarOpen || isMobileMenuOpen) && (
-              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">SIMAK FRESH</span>
+              <span className="ml-3 font-bold text-sm tracking-[0.2em] uppercase">{t('brand.name')}</span>
             )}
           </div>
           <button
@@ -117,7 +132,7 @@ const AdminLayout: React.FC = () => {
           </button>
         </div>
 
-        <nav className="flex-1 mt-2 px-3 space-y-0.5">
+        <nav className="flex-1 mt-2 px-3 space-y-0.5 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -177,16 +192,16 @@ const AdminLayout: React.FC = () => {
 
             <AdminNotificationsDropdown />
 
-            <div className="flex items-center gap-3 border-l border-[#EEEEEE] pl-4 md:pl-6">
-              <div className="text-right hidden md:block">
+            <div className="flex items-center gap-2 border-l border-[#EEEEEE] pl-3 md:pl-6">
+              <div className="text-right hidden sm:block">
                 <p className="text-[12px] font-bold leading-none">
                   {user?.full_name || user?.email || "Admin"}
                 </p>
                 <p className="text-[10px] text-[#A1A1AA] uppercase tracking-wider mt-1">
-                  {user?.is_superuser ? "Proprietor" : "Staff"}
+                  {user?.$is_superuser ? "Proprietor" : "Staff"}
                 </p>
               </div>
-              <div className="w-8 h-8 rounded-full bg-[#F4F4F5] border border-[#E5E5E5] flex items-center justify-center text-[10px] font-bold hover:bg-black hover:text-white transition-all cursor-pointer">
+              <div className="w-8 h-8 rounded-full bg-[#F4F4F5] border border-[#E5E5E5] flex items-center justify-center text-[10px] font-bold hover:bg-black hover:text-white transition-all cursor-pointer flex-shrink-0">
                 {(user?.full_name?.[0] || user?.email?.[0] || "A").toUpperCase()}
               </div>
             </div>
@@ -194,8 +209,8 @@ const AdminLayout: React.FC = () => {
         </header>
 
         {/* --- VIEWPORT --- */}
-        <main className="flex-1 overflow-y-auto bg-white pt-2 px-4 pb-4 md:pt-4 md:px-8 md:pb-8 lg:pt-6 lg:px-12 lg:pb-12">
-          <div className="max-w-6xl mx-auto">
+        <main className="flex-1 overflow-y-auto bg-white pt-4 px-4 pb-12 md:px-8 lg:px-10">
+          <div className="max-w-full lg:max-w-[1400px] mx-auto">
             <Outlet />
           </div>
         </main>

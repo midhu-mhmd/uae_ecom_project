@@ -47,6 +47,8 @@ export interface AddressDto {
   emirate: string;
   country: string;
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /* ── Frontend Customer type ── */
@@ -76,8 +78,11 @@ export interface Customer {
 
 export type CustomersQuery = {
   q?: string;
+  search?: string;
   is_active?: boolean;
   role?: string;
+  is_email_verified?: boolean;
+  is_phone_verified?: boolean;
   page?: number;
   limit?: number;
   offset?: number;

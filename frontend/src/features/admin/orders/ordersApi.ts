@@ -70,7 +70,7 @@ export interface DashboardAnalyticsDto {
 
 /* ── Delivery Estimation DTO ── */
 export interface DeliveryEstimationDto {
-    earliest_delivery_date: string;
+    estimated_delivery_date: string;
     max_delivery_days: number;
     items_breakdown: Array<{
         product_id: number;
@@ -101,19 +101,41 @@ export interface OrderDto {
     discount_amount?: string;
     delivery_charge?: string;
     preferred_delivery_date: string | null;
-    preferred_delivery_slot: string | null;
+    preferred_delivery_slot: number | null;
     delivery_notes: string | null;
     items: OrderItemDto[];
     status_history: StatusHistoryDto[];
     payment: PaymentDto | null;
     created_at: string;
     updated_at: string;
+    delivery_assignment?: any | null;
+    cancellation_request?: any | null;
+    preferred_delivery_slot_details?: DeliverySlotDto;
+}
+
+/* --- Delivery Slot DTO --- */
+export interface DeliverySlotDto {
+    id: number;
+    name: string;
+    start_time: string;
+    end_time: string;
+    cutoff_time: string;
+    start_time_display: string;
+    end_time_display: string;
+    sort_order: number;
+    is_active: boolean;
+}
+
+/* --- Available Slots Response --- */
+export interface AvailableSlotsResponse {
+    date: string;
+    available_slots: DeliverySlotDto[];
 }
 
 export type OrdersQuery = {
     q?: string;
     status?: string;
-    payment_status?: string;
+    payment__status?: string;
     page?: number;
     limit?: number;
     offset?: number;
@@ -140,13 +162,14 @@ export interface CheckoutSummaryRequest {
     coupon_code?: string;
     tip_amount?: number;
     preferred_delivery_date?: string;
-    preferred_delivery_slot?: string;
+    preferred_delivery_slot?: number;
 }
 
 /* ── Delivery Charge Settings DTO ── */
 export interface DeliveryChargeSettingsDto {
     min_order_for_free_delivery: number;
     delivery_charge_amount: number;
+    is_active: boolean;
 }
 
 export interface CheckoutSummaryResponse {
@@ -228,7 +251,7 @@ export const ordersApi = {
         address_id: number;
         payment_method: "COD" | "ZIINA";
         preferred_delivery_date?: string;
-        preferred_delivery_slot?: string;
+        preferred_delivery_slot?: number;
         delivery_notes?: string;
         tip_amount?: number;
         coupon_code?: string;
@@ -271,15 +294,29 @@ export const ordersApi = {
 
     /* ── Delivery Charge Settings (Admin) ── */
     getDeliveryChargeSettings: async (): Promise<DeliveryChargeSettingsDto> => {
-        const res = await api.get<DeliveryChargeSettingsDto>("/orders/delivery_charge_settings/");
-        return res.data;
+        const res = await api.get<any>("/orders/delivery_charge_settings/");
+        const raw = res.data;
+        return {
+            min_order_for_free_delivery: parseFloat(raw.min_free_shipping_amount ?? raw.min_order_for_free_delivery ?? 0),
+            delivery_charge_amount: parseFloat(raw.delivery_charge ?? raw.delivery_charge_amount ?? 0),
+            is_active: raw.is_active ?? true,
+        };
     },
 
     updateDeliveryChargeSettings: async (
         data: DeliveryChargeSettingsDto
     ): Promise<DeliveryChargeSettingsDto> => {
-        const res = await api.post<DeliveryChargeSettingsDto>("/orders/delivery_charge_settings/", data);
-        return res.data;
+        const res = await api.post<any>("/orders/delivery_charge_settings/", {
+            min_free_shipping_amount: data.min_order_for_free_delivery,
+            delivery_charge: data.delivery_charge_amount,
+            is_active: data.is_active,
+        });
+        const raw = res.data;
+        return {
+            min_order_for_free_delivery: parseFloat(raw.min_free_shipping_amount ?? raw.min_order_for_free_delivery ?? 0),
+            delivery_charge_amount: parseFloat(raw.delivery_charge ?? raw.delivery_charge_amount ?? 0),
+            is_active: raw.is_active ?? true,
+        };
     },
 
     /* ── Retry Payment ── */
@@ -291,5 +328,57 @@ export const ordersApi = {
     /* ── Verify Payment ── */
     verifyPayment: async (orderId: number): Promise<void> => {
         await api.post(`/orders/${orderId}/verify_payment/`);
+    },
+
+    getAvailableSlots: async (date?: string): Promise<AvailableSlotsResponse> => {
+        const res = await api.get<AvailableSlotsResponse>("/orders/delivery-slots/available/", {
+            params: date ? { date } : {},
+        });
+        return res.data;
+    },
+
+    /* ── Delivery Slots (Admin) ── */
+    getSlots: async (): Promise<DeliverySlotDto[]> => {
+        const res = await api.get<DeliverySlotDto[]>("/orders/delivery-slots/");
+        return res.data;
+    },
+
+    createSlot: async (data: Partial<DeliverySlotDto>): Promise<DeliverySlotDto> => {
+        const res = await api.post<DeliverySlotDto>("/orders/delivery-slots/", data);
+        return res.data;
+    },
+
+    updateSlot: async (id: number, data: Partial<DeliverySlotDto>): Promise<DeliverySlotDto> => {
+        const res = await api.patch<DeliverySlotDto>(`/orders/delivery-slots/${id}/`, data);
+        return res.data;
+    },
+
+    deleteSlot: async (id: number): Promise<void> => {
+        await api.delete(`/orders/delivery-slots/${id}/`);
+    },
+
+    activateSlot: async (id: number): Promise<DeliverySlotDto> => {
+        const res = await api.post<DeliverySlotDto>(`/orders/delivery-slots/${id}/activate/`);
+        return res.data;
+    },
+
+    deactivateSlot: async (id: number): Promise<DeliverySlotDto> => {
+        const res = await api.post<DeliverySlotDto>(`/orders/delivery-slots/${id}/deactivate/`);
+        return res.data;
+    },
+
+    /* ── Delivery Overrides (Admin) ── */
+    getOverrides: async (params?: any): Promise<any[]> => {
+        const res = await api.get<any[]>("/orders/delivery-slot-overrides/", { params });
+        return res.data;
+    },
+
+    createOverride: async (data: any): Promise<any> => {
+        const res = await api.post<any>("/orders/delivery-slot-overrides/", data);
+        return res.data;
+    },
+
+    deleteOverride: async (id: number): Promise<void> => {
+        await api.delete(`/orders/delivery-slot-overrides/${id}/`);
     },
 };

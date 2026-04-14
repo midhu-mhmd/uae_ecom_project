@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { ordersApi, type OrderDto, type OrderItemDto } from "../admin/orders/ordersApi";
 import { reviewsApi } from "../admin/reviews/reviewsApi";
 import { useToast } from "../../components/ui/Toast";
+import BackendData from "../../components/ui/BackendData";
 import useLanguageToggle from "../../hooks/useLanguageToggle";
 import { useAppSelector } from "../../hooks";
 import { API_BASE_URL } from "../../config/constants";
@@ -19,6 +20,7 @@ import { API_BASE_URL } from "../../config/constants";
    ══════════════════════════════════════════════════ */
 const STATUS_MAP: Record<string, { color: string; bg: string; icon: React.ReactNode; key: string }> = {
     pending: { color: "text-amber-700", bg: "bg-amber-100", icon: <Clock size={16} />, key: "pending" },
+    paid: { color: "text-emerald-700", bg: "bg-emerald-100", icon: <CreditCard size={16} />, key: "paid" },
     confirmed: { color: "text-blue-700", bg: "bg-blue-100", icon: <CheckCircle size={16} />, key: "confirmed" },
     processing: { color: "text-indigo-700", bg: "bg-indigo-100", icon: <Package size={16} />, key: "processing" },
     shipped: { color: "text-cyan-700", bg: "bg-cyan-100", icon: <Truck size={16} />, key: "shipped" },
@@ -845,7 +847,7 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                             <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold mb-6 ${st.bg} ${st.color}`}>
                                 {st.icon} {t(`status.${st.key}`)}
                             </span>
-                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">Order ID: {order.id}</h1>
+                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2">Order ID: <BackendData value={order.id} /></h1>
                             <p className="text-lg text-slate-500 font-medium">{t("detail.placed", { date: formatDateTime(order.created_at) })}</p>
                         </div>
                         <div className="hidden sm:flex self-stretch items-center">
@@ -1072,16 +1074,21 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                     <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><MapPin size={20} /></div>
                                     <h2 className="text-xl font-bold text-slate-900">{t("detail.deliveryAddress")}</h2>
                                 </div>
-                                <h3 className="font-black text-slate-900 text-lg mb-2">{addr.full_name}</h3>
+                                <h3 className="font-black text-slate-900 text-lg mb-2"><BackendData value={addr.full_name} /></h3>
                                 <p className="text-slate-500 font-medium leading-relaxed">
-                                    {[addr.flat_villa_number, addr.building_name, addr.street_address].filter(Boolean).join(", ")}<br />
-                                    {[addr.area, addr.city, addr.emirate].filter(Boolean).join(", ")}
+                                    <BackendData
+                                        value={[addr.flat_villa_number, addr.building_name, addr.street_address].filter(Boolean).join(", ")}
+                                    />
+                                    <br />
+                                    <BackendData
+                                        value={[addr.area, addr.city, addr.emirate].filter(Boolean).join(", ")}
+                                    />
                                 </p>
                             </div>
                             <div className="mt-6 pt-6 border-t border-slate-100 font-bold text-slate-900">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-slate-400">{t("detail.phone")}</span>
-                                    {addr.phone_number}
+                                    <BackendData value={addr.phone_number} />
                                 </div>
 
                             </div>
@@ -1110,12 +1117,16 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                     </div>
                                     <div>
                                         <p className="text-sm font-bold text-slate-400 mb-1">{t("detail.method")}</p>
-                                        <p className="font-black text-lg text-slate-900 uppercase">{payment.payment_method}</p>
+                                        <p className="font-black text-lg text-slate-900">
+                                            {(payment.payment_method || "").toUpperCase() === "ZIINA"
+                                                ? t("detail.online", { defaultValue: "Online" })
+                                                : payment.payment_method}
+                                        </p>
                                     </div>
                                     {payment.transaction_id && (
                                         <div>
                                             <p className="text-sm font-bold text-slate-400 mb-1">{t("detail.transactionId")}</p>
-                                            <p className="font-mono font-bold text-sm text-slate-700">{payment.transaction_id}</p>
+                                            <p className="font-mono font-bold text-sm text-slate-700"><BackendData value={payment.transaction_id} /></p>
                                         </div>
                                     )}
                                     {isPaymentSuccess && payment.created_at && (
@@ -1130,7 +1141,9 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                 <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm font-bold text-slate-400">{t("detail.receiptRef")}</span>
-                                        <span className="font-mono font-bold text-sm bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">{payment.receipt.receipt_number}</span>
+                                        <span className="font-mono font-bold text-sm bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">
+                                            <BackendData value={payment.receipt.receipt_number} />
+                                        </span>
                                     </div>
                                     {canDownloadReceipt && (
                                         <div className="flex gap-2">
@@ -1250,7 +1263,12 @@ const OrderDetail: React.FC<{ orderId: number }> = ({ orderId }) => {
                                 {order.preferred_delivery_slot && (
                                     <div className="flex justify-between items-center">
                                         <span>{t("detail.timeSlot")}</span>
-                                        <span className="text-white text-base capitalize">{order.preferred_delivery_slot}</span>
+                                        <span className="text-white text-base">
+                                            {order.preferred_delivery_slot_details 
+                                                ? `${order.preferred_delivery_slot_details.start_time_display} - ${order.preferred_delivery_slot_details.end_time_display} (${order.preferred_delivery_slot_details.name})`
+                                                : order.preferred_delivery_slot
+                                            }
+                                        </span>
                                     </div>
                                 )}
                             </div>

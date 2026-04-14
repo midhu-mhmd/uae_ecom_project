@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import useLanguageToggle from '../../../hooks/useLanguageToggle';
 
 // ✅ Logo
-import simakLogo from '../../../assets/SIMAK FRESH FINAL SVG-01.svg';
+import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -115,15 +115,15 @@ const Navbar: React.FC = () => {
                     <Link to="/" className="shrink-0 flex items-center gap-2 group">
                         <img
                             src={simakLogo}
-                            alt="SIMAK FRESH"
+                            alt={t('brand.name')}
                             className="h-10 w-auto object-contain"
                         />
-                        <div className="flex flex-col justify-center">
-                            <span className="text-xl font-black tracking-wider text-slate-800 uppercase leading-none">
-                                SIMAK <span className="text-cyan-600">FRESH</span>
+                        <div className="flex flex-col justify-center items-center text-center">
+                            <span className="text-xl font-black tracking-tight text-slate-900 uppercase leading-none">
+                                {t('brand.name')}
                             </span>
-                            <span className="text-[9px] sm:text-[9.7px] font-semibold tracking-[0.2em] text-cyan-700/80 uppercase mt-1 leading-none">
-                                Signature of Quality
+                            <span className="text-[8px] sm:text-[9.5px] font-bold tracking-[0.1em] text-cyan-800/80 uppercase mt-1 leading-none">
+                                {t('brand.signature')}
                             </span>
                         </div>
                     </Link>

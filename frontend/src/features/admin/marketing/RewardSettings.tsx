@@ -45,6 +45,22 @@ export const RewardSettings: React.FC = () => {
         formState: { isDirty },
     } = useForm<RewardConfigFormData>({
         resolver: zodResolver(rewardConfigSchema) as any,
+        defaultValues: {
+            first_order_discount_type: "percentage",
+            first_order_discount_value: 0,
+            first_order_min_amount: 0,
+            first_order_validity_days: 1,
+            referral_discount_type: "percentage",
+            referral_discount_value: 0,
+            referral_min_amount: 0,
+            referral_validity_days: 1,
+            referral_usage_limit: 1,
+            referrer_discount_value: 0,
+            referrer_validity_days: 1,
+            max_discount_percentage: null,
+            is_referral_active: false,
+            is_first_order_active: false,
+        },
     });
 
     useEffect(() => {
@@ -97,34 +113,34 @@ export const RewardSettings: React.FC = () => {
     return (
         <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-white rounded-3xl border border-stone-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-stone-50 bg-stone-50/50 flex justify-between items-center">
+                <div className="p-6 border-b border-stone-50 bg-stone-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-cyan-100 text-cyan-600 rounded-xl">
+                        <div className="p-2 bg-cyan-100 text-cyan-600 rounded-xl shrink-0">
                             <Gift size={20} />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-stone-900">Reward Configuration</h2>
+                            <h2 className="text-lg font-black text-stone-900 leading-tight">Reward Configuration</h2>
                             <p className="text-xs font-bold text-stone-500">System-wide settings for automated rewards</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto">
                         <button
                             onClick={handleResetToDefaults}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold hover:bg-stone-50 transition-all"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold hover:bg-stone-50 transition-all"
                         >
-                            <RotateCcw size={14} /> Reset Defaults
+                            <RotateCcw size={14} /> Reset
                         </button>
                         <button
                             onClick={handleSubmit(onSubmit)}
                             disabled={!isDirty || loading}
-                            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl text-xs font-bold hover:bg-stone-800 transition-all disabled:opacity-50"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-xl text-xs font-bold hover:bg-stone-800 transition-all disabled:opacity-50"
                         >
-                            {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Changes
+                            {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
                         </button>
                     </div>
                 </div>
 
-                <form className="p-8 space-y-10">
+                <form className="p-4 sm:p-8 space-y-8 sm:space-y-10">
                     {/* First Order Section */}
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">

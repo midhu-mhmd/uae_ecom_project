@@ -1,6 +1,5 @@
 import React, {
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -47,7 +46,6 @@ import {
   selectCustomersError,
   selectSelectedCustomerId,
   selectCustomersTotal,
-  selectShowDeleted,
   selectActionStatus,
   selectActionError,
 } from "./customersSlice";
@@ -66,7 +64,6 @@ type ColumnKey =
   | "googleLinked"
   | "language"
   | "newsletter"
-  | "lastLogin"
   | "joined"
   | "actions";
 
@@ -93,7 +90,6 @@ const COLUMNS: ColumnDef[] = [
   { key: "googleLinked", label: "Google", icon: <Globe size={12} />, defaultVisible: false },
   { key: "language", label: "Language", icon: <Globe size={12} />, defaultVisible: false },
   { key: "newsletter", label: "Newsletter", icon: <Bell size={12} />, defaultVisible: false },
-  { key: "lastLogin", label: "Last Login", icon: <Calendar size={12} />, defaultVisible: false },
   { key: "joined", label: "Joined", icon: <Calendar size={12} />, defaultVisible: true },
   { key: "actions", label: "Actions", defaultVisible: true, alwaysVisible: true },
 ];
@@ -223,7 +219,7 @@ const ActionDropdown = memo(function ActionDropdown({
             </button>
             {roleOpen && (
               <div className="absolute left-full top-0 ml-1 w-40 bg-white rounded-xl border border-[#EEEEEE] shadow-xl z-50 py-1.5">
-                {(["admin", "customer", "staff"] as const).map((r) => (
+                {(["admin", "user"] as const).map((r) => (
                   <button
                     key={r}
                     onClick={() => {
@@ -301,7 +297,6 @@ const CustomerRow = memo(function CustomerRow({
   onView,
   onAction,
   joinedLabel,
-  lastLoginLabel,
 }: {
   customer: Customer;
   index: number;
@@ -311,7 +306,6 @@ const CustomerRow = memo(function CustomerRow({
   onView: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onAction: (actionType: string, id: string, payload?: any) => void;
   joinedLabel: string;
-  lastLoginLabel: string;
 }) {
   const navigate = useNavigate();
   const handleRowClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
@@ -369,7 +363,7 @@ const CustomerRow = memo(function CustomerRow({
       )}
 
       {isVisible("role") && (
-        <td className="px-5 py-4">
+        <td className="px-5 py-4 hidden md:table-cell">
           <span
             className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase border ${customer.role === "admin"
               ? "bg-blue-50 text-blue-600 border-blue-100"
@@ -384,7 +378,7 @@ const CustomerRow = memo(function CustomerRow({
       )}
 
       {isVisible("verified") && (
-        <td className="px-5 py-4">
+        <td className="px-5 py-4 hidden lg:table-cell">
           <div className="flex items-center gap-2">
             <span
               title="Email"
@@ -405,7 +399,7 @@ const CustomerRow = memo(function CustomerRow({
       )}
 
       {isVisible("phone") && (
-        <td className="px-5 py-4">
+        <td className="px-5 py-4 hidden lg:table-cell">
           <span className="text-xs font-medium text-[#52525B]">{customer.phone || "—"}</span>
         </td>
       )}
@@ -440,14 +434,8 @@ const CustomerRow = memo(function CustomerRow({
         </td>
       )}
 
-      {isVisible("lastLogin") && (
-        <td className="px-5 py-4">
-          <span className="text-xs text-[#52525B] font-medium">{lastLoginLabel}</span>
-        </td>
-      )}
-
       {isVisible("joined") && (
-        <td className="px-5 py-4">
+        <td className="px-5 py-4 hidden lg:table-cell">
           <span className="text-xs text-[#52525B] font-medium">{joinedLabel}</span>
         </td>
       )}
@@ -781,7 +769,7 @@ const CustomerDetailPanel = memo(function CustomerDetailPanel({
               </button>
               {showRolePicker && (
                 <div className="absolute bottom-full mb-1 left-0 w-40 bg-white rounded-xl border border-[#EEEEEE] shadow-xl z-50 py-1.5">
-                  {(["admin", "customer", "staff"] as const).map((r) => (
+                  {(["admin", "user"] as const).map((r) => (
                     <button
                       key={r}
                       onClick={() => {
@@ -839,7 +827,6 @@ const CustomerManagement: React.FC = () => {
   const status = useSelector(selectCustomersStatus);
   const error = useSelector(selectCustomersError);
   const selectedCustomerId = useSelector(selectSelectedCustomerId);
-  const showDeleted = useSelector(selectShowDeleted);
   const actionStatus = useSelector(selectActionStatus);
   const actionError = useSelector(selectActionError);
 
@@ -865,13 +852,18 @@ const CustomerManagement: React.FC = () => {
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
   const [verifiedFilter, setVerifiedFilter] = useState("");
   const [phoneFilter, setPhoneFilter] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const deferredSearchTerm = useDeferredValue(searchTerm.trim());
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   // Prefill phone filter from URL ?phone= query
   useEffect(() => {
@@ -923,9 +915,23 @@ const CustomerManagement: React.FC = () => {
   // Fetch the current page from the backend using server-supported filters.
   useEffect(() => {
     const offset = (page - 1) * limit;
+
+    let is_email_verified: boolean | undefined = undefined;
+    let is_phone_verified: boolean | undefined = undefined;
+    if (verifiedFilter === "email") is_email_verified = true;
+    else if (verifiedFilter === "phone") is_phone_verified = true;
+    else if (verifiedFilter === "both") {
+      is_email_verified = true;
+      is_phone_verified = true;
+    } else if (verifiedFilter === "none") {
+      is_email_verified = false;
+      is_phone_verified = false;
+    }
+
     dispatch(
       customersActions.fetchCustomersRequest({
-        q: deferredSearchTerm || undefined,
+        q: debouncedSearch || undefined,
+        search: debouncedSearch || undefined,
         is_active:
           statusFilter === "All"
             ? undefined
@@ -933,12 +939,14 @@ const CustomerManagement: React.FC = () => {
               ? true
               : false,
         role: roleQueryValue,
+        is_email_verified,
+        is_phone_verified,
         page,
         limit,
         offset,
       })
     );
-  }, [dispatch, deferredSearchTerm, statusFilter, roleQueryValue, page, limit, showDeleted]);
+  }, [dispatch, debouncedSearch, statusFilter, roleQueryValue, verifiedFilter, page, limit]);
 
   const handleReset = useCallback(() => {
     setSearchTerm("");
@@ -988,6 +996,24 @@ const CustomerManagement: React.FC = () => {
   const filteredCustomers = useMemo(() => {
     let result = customers;
 
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.phone && c.phone.toLowerCase().includes(q))
+      );
+    }
+
+    if (statusFilter !== "All") {
+      result = result.filter((c) => c.status === statusFilter);
+    }
+
+    if (roleFilter !== "All") {
+      result = result.filter((c) => c.role === roleFilter);
+    }
+
     if (verifiedFilter === "email") result = result.filter((c) => c.isEmailVerified);
     else if (verifiedFilter === "phone") result = result.filter((c) => c.isPhoneVerified);
     else if (verifiedFilter === "both") result = result.filter((c) => c.isEmailVerified && c.isPhoneVerified);
@@ -999,14 +1025,9 @@ const CustomerManagement: React.FC = () => {
     }
 
     return result;
-  }, [customers, verifiedFilter, phoneFilter]);
+  }, [customers, verifiedFilter, phoneFilter, debouncedSearch, statusFilter, roleFilter]);
 
-  const hasServerFilters = !!(
-    deferredSearchTerm ||
-    statusFilter !== "All" ||
-    roleFilter !== "All"
-  );
-  const displayedCustomers = hasServerFilters ? customers : filteredCustomers;
+  const displayedCustomers = filteredCustomers;
 
   // If phone filter is present in URL and exactly one match, open details panel
   useEffect(() => {
@@ -1119,11 +1140,6 @@ const CustomerManagement: React.FC = () => {
     [dispatch]
   );
 
-  const toggleShowDeleted = useCallback(() => {
-    dispatch(customersActions.toggleShowDeleted());
-    setPage(1);
-  }, [dispatch]);
-
   return (
     <div className="min-h-screen w-full space-y-6 text-[#18181B] bg-[#FDFDFD]">
       {/* --- TOAST --- */}
@@ -1154,20 +1170,10 @@ const CustomerManagement: React.FC = () => {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-black">Customers</h1>
           <p className="text-[#71717A] text-sm mt-1">Manage users and their accounts.</p>
         </div>
-        <button
-          onClick={toggleShowDeleted}
-          className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-xs font-bold transition-all ${showDeleted
-            ? "bg-rose-600 text-white border-rose-600 hover:bg-rose-700"
-            : "bg-white text-[#52525B] border-[#EEEEEE] hover:bg-[#FAFAFA]"
-            }`}
-        >
-          <Trash2 size={14} />
-          {showDeleted ? "Showing All (incl. Deleted)" : "Show Deleted"}
-        </button>
       </div>
 
-      {/* --- STATS --- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* --- QUICK STATS --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStat
           label="Total Users"
           value={countsLoading ? "..." : `${userCounts.total_users}`}
@@ -1284,18 +1290,17 @@ const CustomerManagement: React.FC = () => {
           <table className="w-full text-left border-collapse min-w-250">
             <thead className="bg-[#FAFAFA]">
               <tr className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">
-                {isVisible("index") && <th className="px-5 py-4 w-12 text-center">#</th>}
-                {isVisible("customer") && <th className="px-5 py-4">Customer</th>}
-                {isVisible("status") && <th className="px-5 py-4">Status</th>}
-                {isVisible("role") && <th className="px-5 py-4">Role</th>}
-                {isVisible("verified") && <th className="px-5 py-4">Verified</th>}
-                {isVisible("phone") && <th className="px-5 py-4">Phone</th>}
-                {isVisible("googleLinked") && <th className="px-5 py-4">Google</th>}
-                {isVisible("language") && <th className="px-5 py-4">Language</th>}
-                {isVisible("newsletter") && <th className="px-5 py-4">Newsletter</th>}
-                {isVisible("lastLogin") && <th className="px-5 py-4">Last Login</th>}
-                {isVisible("joined") && <th className="px-5 py-4">Joined</th>}
-                {isVisible("actions") && <th className="px-5 py-4 text-right">Actions</th>}
+                {isVisible("index") && <th className="px-5 py-4 w-12 text-center text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">#</th>}
+                {isVisible("customer") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">Customer</th>}
+                {isVisible("status") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">Status</th>}
+                {isVisible("role") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden md:table-cell">Role</th>}
+                {isVisible("verified") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden lg:table-cell">Verified</th>}
+                {isVisible("phone") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden lg:table-cell">Phone</th>}
+                {isVisible("googleLinked") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden xl:table-cell">Google</th>}
+                {isVisible("language") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden xl:table-cell">Lang</th>}
+                {isVisible("newsletter") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden xl:table-cell">Mail</th>}
+                {isVisible("joined") && <th className="px-5 py-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE] hidden lg:table-cell">Joined</th>}
+                {isVisible("actions") && <th className="px-5 py-4 text-right text-xs font-bold text-[#A1A1AA] uppercase tracking-widest border-b border-[#EEEEEE]">Actions</th>}
               </tr>
 
               {isFilterOpen && (
@@ -1416,11 +1421,6 @@ const CustomerManagement: React.FC = () => {
                       <div className="text-[10px] text-[#A1A1AA] italic">—</div>
                     </td>
                   )}
-                  {isVisible("lastLogin") && (
-                    <td className="px-5 py-3">
-                      <div className="text-[10px] text-[#A1A1AA] italic">—</div>
-                    </td>
-                  )}
                   {isVisible("joined") && (
                     <td className="px-5 py-3">
                       <div className="text-[10px] text-[#A1A1AA] italic">—</div>
@@ -1478,7 +1478,6 @@ const CustomerManagement: React.FC = () => {
                       onView={onViewCustomer}
                       onAction={onAction}
                       joinedLabel={fd?.joined ?? "—"}
-                      lastLoginLabel={fd?.lastLogin ?? "Never"}
                     />
                   );
                 })}

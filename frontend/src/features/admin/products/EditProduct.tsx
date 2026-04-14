@@ -1,19 +1,14 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, UploadCloud, Trash2, Image as ImageIcon, Film, AlertCircle, Save } from "lucide-react";
-import {
-    productsActions,
-    selectProductsStatus,
-    selectProductsError,
-} from "./productsSlice";
-import type { ProductDto } from "./productApi";
+import { ArrowLeft, Loader2, UploadCloud, Trash2, Image as ImageIcon, Film, AlertCircle, Save, Plus, Link as LinkIcon, Eye } from "lucide-react";
+import type { ProductDto, CategoryDto } from "./productApi";
 import { productsApi } from "./productApi";
 import DeliveryTiersManager from "./DeliveryTiersManager";
 import DiscountTiersManager from "./DiscountTiersManager";
 import ProductLocationsField from "./ProductLocationsField";
 import { extractProductLocationValues } from "./productLocationOptions";
+import MediaLightbox, { type MediaItem } from "./MediaLightbox";
 
 /* ─────────────────────────────────────────────
    Extended Interface for Form Handling
@@ -86,23 +81,49 @@ interface EditProductFormProps {
 }
 
 const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => {
-    const dispatch = useDispatch();
     const navigate = useNavigate();
-    const submitted = useRef(false);
 
-    const status = useSelector(selectProductsStatus);
-    const backendError = useSelector(selectProductsError);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    /* ── Categories from API ── */
+    const [categories, setCategories] = useState<CategoryDto[]>([]);
+    const [catsLoading, setCatsLoading] = useState(false);
+
+    useEffect(() => {
+        setCatsLoading(true);
+        productsApi.listCategories()
+            .then((data) => setCategories(data))
+            .catch(() => {})
+            .finally(() => setCatsLoading(false));
+    }, []);
+
+    // Once categories are loaded, re-apply the category value so the select finds the matching option
+    useEffect(() => {
+        if (categories.length > 0 && dto?.category) {
+            setValue("category", String(dto.category) as any);
+        }
+    }, [categories]);
 
     const [existingImages, setExistingImages] = useState(dto.images || []);
     const [existingVideos, setExistingVideos] = useState(dto.videos || []);
+    const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
+    const [removedVideoIds, setRemovedVideoIds] = useState<number[]>([]);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [newVideoUrl, setNewVideoUrl] = useState("");
+    const [newVideoTitle, setNewVideoTitle] = useState("");
+
+    /* ── Lightbox ── */
+    const [lightbox, setLightbox] = useState<{ items: MediaItem[]; index: number } | null>(null);
+
+    const openLightbox = (items: MediaItem[], index: number) => setLightbox({ items, index });
     const [selectedLocations, setSelectedLocations] = useState<string[]>(() =>
         extractProductLocationValues(
             dto.available_locations ?? dto.available_emirates ?? dto.service_areas
         )
     );
 
-    const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormValues>({
+    const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ProductFormValues>({
         defaultValues: dto
     });
 
@@ -118,13 +139,15 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                 price: dto.price,
                 discount_price: dto.discount_price || "",
                 stock: dto.stock,
-                category: dto.category,
+                category: String(dto.category) as any,
                 sku: dto.sku || "",
                 is_available: dto.is_available,
                 expected_delivery_time: dto.expected_delivery_time || "",
             });
             setExistingImages(dto.images || []);
             setExistingVideos(dto.videos || []);
+            setRemovedImageIds([]);
+            setRemovedVideoIds([]);
             setSelectedLocations(
                 extractProductLocationValues(
                     dto.available_locations ?? dto.available_emirates ?? dto.service_areas
@@ -133,70 +156,87 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
         }
     }, [dto, reset]);
 
-    useEffect(() => {
-        dispatch(productsActions.resetStatus());
-        return () => { dispatch(productsActions.resetStatus()); };
-    }, [dispatch]);
-
-    useEffect(() => {
-        if (status === "succeeded" && submitted.current) {
-            navigate("/admin/products");
-        }
-    }, [status, navigate]);
-
     // Handle Frontend Validation failures to ensure silent blocking doesn't happen
     const onInvalid = (errors: any) => {
         console.error("Form Validation Errors:", errors);
         setValidationError("Please fill out all required fields correctly.");
     };
 
-    const onSubmit = (data: ProductFormValues) => {
+    const onSubmit = async (data: ProductFormValues) => {
         setValidationError(null);
-        submitted.current = true;
-        const formData = new FormData();
+        setSaveError(null);
+        setIsSaving(true);
+        try {
+            const formData = new FormData();
 
-        // 1. Append Standard Text & Number Fields
-        formData.append("name", data.name || "");
-        formData.append("description", data.description || "");
-        formData.append("category", String(data.category));
-        formData.append("price", String(data.price));
-        formData.append("stock", String(data.stock));
-        formData.append("is_available", data.is_available ? "True" : "False");
+            // Product fields
+            formData.append("name", data.name || "");
+            formData.append("description", data.description || "");
+            formData.append("category", String(data.category));
+            formData.append("price", String(data.price));
+            formData.append("stock", String(data.stock));
+            formData.append("is_available", data.is_available ? "True" : "False");
+            if (data.discount_price) formData.append("discount_price", String(data.discount_price));
+            else formData.append("discount_price", "");
+            if (data.unit) formData.append("unit", String(data.unit));
+            if (data.sku) formData.append("sku", data.sku);
+            if (data.expected_delivery_time) formData.append("expected_delivery_time", data.expected_delivery_time);
+            formData.append("available_emirates", JSON.stringify(selectedLocations));
 
-        // Safely handle discount price so backend doesn't crash on empty string
-        if (data.discount_price) {
-            formData.append("discount_price", String(data.discount_price));
-        } else {
-            formData.append("discount_price", "");
+            // Main image
+            if (data.image && data.image instanceof FileList && data.image.length > 0) {
+                formData.append("image", data.image[0]);
+            }
+
+            // 1. Update product
+            await productsApi.update(productId, formData);
+
+            // 2. Delete removed gallery images
+            await Promise.all(removedImageIds.map(id => productsApi.deleteProductImage(id)));
+
+            // 3. Upload new gallery images
+            if (data.new_gallery_images && data.new_gallery_images.length > 0) {
+                await Promise.all(Array.from(data.new_gallery_images).map(file => {
+                    const fd = new FormData();
+                    fd.append("product", String(productId));
+                    fd.append("image", file);
+                    return productsApi.addProductImage(fd);
+                }));
+            }
+
+            // 4. Delete removed videos
+            await Promise.all(removedVideoIds.map(id => productsApi.deleteProductVideo(id)));
+
+            // 5. Upload new video files
+            if (data.new_videos && data.new_videos.length > 0) {
+                await Promise.all(Array.from(data.new_videos).map(file => {
+                    const fd = new FormData();
+                    fd.append("product", String(productId));
+                    fd.append("video_file", file);
+                    return productsApi.addProductVideo(fd);
+                }));
+            }
+
+            // 6. Add new video URL if provided
+            if (newVideoUrl.trim()) {
+                await productsApi.addProductVideo({
+                    product: productId,
+                    video_url: newVideoUrl.trim(),
+                    title: newVideoTitle.trim() || undefined,
+                });
+            }
+
+            navigate("/admin/products");
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail
+                || err?.response?.data?.error
+                || (typeof err?.response?.data === 'string' ? err.response.data : null)
+                || err?.message
+                || "Failed to save changes";
+            setSaveError(msg);
+        } finally {
+            setIsSaving(false);
         }
-
-        if (data.unit) formData.append("unit", String(data.unit));
-        if (data.sku) formData.append("sku", data.sku);
-        if (data.expected_delivery_time) formData.append("expected_delivery_time", data.expected_delivery_time);
-
-        formData.append("available_emirates", JSON.stringify(selectedLocations));
-
-        formData.append("retained_image_ids", JSON.stringify(existingImages.map(img => img.id)));
-        formData.append("retained_video_ids", JSON.stringify(existingVideos.map(vid => vid.id)));
-
-        // 3. Append Files (Checking if it's a FileList and not the existing URL string)
-        if (data.image && data.image instanceof FileList && data.image.length > 0) {
-            formData.append("image", data.image[0]);
-        }
-
-        if (data.new_gallery_images && data.new_gallery_images.length > 0) {
-            Array.from(data.new_gallery_images).forEach((file) => {
-                formData.append("uploaded_images", file);
-            });
-        }
-
-        if (data.new_videos && data.new_videos.length > 0) {
-            Array.from(data.new_videos).forEach((file) => {
-                formData.append("uploaded_videos", file);
-            });
-        }
-
-        dispatch(productsActions.updateProductRequest({ id: productId, data: formData }));
     };
 
     const toggleLocation = (location: string) => {
@@ -211,48 +251,48 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
 
     return (
         <div className="min-h-screen bg-[#FDFDFD] p-6 md:p-12 space-y-8 animate-in slide-in-from-right duration-500">
-            <div className="flex items-center justify-between max-w-4xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-4xl mx-auto">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate("/admin/products")} className="p-2 hover:bg-[#F4F4F5] rounded-full transition-colors">
+                    <button onClick={() => navigate("/admin/products")} className="p-2 hover:bg-[#F4F4F5] rounded-full transition-colors flex-shrink-0">
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Edit Product</h1>
-                        <p className="text-sm text-[#71717A]">Update inventory, pricing tiers, and media.</p>
+                        <h1 className="text-xl md:text-2xl font-bold tracking-tight">Edit Product</h1>
+                        <p className="text-xs md:text-sm text-[#71717A]">Update inventory, pricing tiers, and media.</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                     <button
                         type="button"
                         onClick={() => navigate("/admin/products")}
-                        className="px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all active:scale-95"
+                        className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all active:scale-95"
                     >
                         Discard
                     </button>
                     <button
                         type="submit"
                         form="edit-product-form"
-                        disabled={status === "loading"}
-                        className="group relative px-7 py-2.5 bg-black hover:bg-zinc-900 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-black/20 disabled:opacity-50 flex items-center gap-2.5 transition-all active:scale-95 border border-white/10"
+                        disabled={isSaving}
+                        className="flex-1 sm:flex-none group relative px-7 py-2.5 bg-black hover:bg-zinc-900 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-black/20 disabled:opacity-50 flex items-center justify-center gap-2.5 transition-all active:scale-95 border border-white/10"
                     >
-                        {status === "loading" ? (
+                        {isSaving ? (
                             <Loader2 size={18} className="animate-spin" />
                         ) : (
                             <Save size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
                         )}
-                        <span>{status === "loading" ? "Saving..." : "Save Product"}</span>
+                        <span className="relative">{isSaving ? "Saving..." : "Save Product"}</span>
                     </button>
                 </div>
             </div>
 
             {/* Error Displays */}
-            {(backendError || validationError) && (
+            {(saveError || validationError) && (
                 <div className="max-w-4xl mx-auto bg-rose-50 text-rose-700 p-4 rounded-xl text-sm font-medium border border-rose-200 flex items-start gap-3">
                     <AlertCircle size={18} className="mt-0.5 shrink-0" />
                     <div>
                         <p className="font-bold">Failed to save changes</p>
-                        <p className="opacity-90">{validationError || (typeof backendError === 'string' ? backendError : JSON.stringify(backendError))}</p>
+                        <p className="opacity-90">{validationError || saveError}</p>
                     </div>
                 </div>
             )}
@@ -261,9 +301,9 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
 
                 {/* Basic Info */}
                 <section className="bg-white border border-[#EEEEEE] rounded-2xl p-6 shadow-sm space-y-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <h2 className="text-lg font-bold">Basic Information</h2>
-                        <span className="text-xs font-mono bg-slate-100 text-slate-500 px-3 py-1 rounded-lg">Slug: {dto.slug}</span>
+                        <span className="text-xs font-mono bg-slate-100 text-slate-500 px-3 py-1 rounded-lg w-fit">Slug: {dto.slug}</span>
                     </div>
                     <div className="grid gap-6">
                         <div className="space-y-2">
@@ -289,9 +329,9 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
 
                 {/* Pricing & Inventory */}
                 <section className="bg-white border border-[#EEEEEE] rounded-2xl p-6 shadow-sm space-y-6">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <h2 className="text-lg font-bold">Pricing & Inventory</h2>
-                        <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg">
+                        <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg w-fit">
                             Final Price: AED {dto.final_price}
                         </span>
                     </div>
@@ -342,12 +382,19 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                     <h2 className="text-lg font-bold">Organization</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-[#A1A1AA]">Category ID</label>
-                            <input
-                                type="number"
-                                {...register("category", { required: "Category ID is required" })}
+                            <label className="text-xs font-bold uppercase text-[#A1A1AA]">Category</label>
+                            <select
+                                {...register("category", { required: "Category is required" })}
+                                disabled={catsLoading}
                                 className={`w-full px-4 py-3 bg-[#FAFAFA] border-2 rounded-xl text-sm font-medium focus:ring-2 outline-none transition-all ${errors.category ? 'border-rose-200 focus:border-rose-400 focus:ring-rose-100' : 'border-transparent focus:border-black focus:ring-black/5'}`}
-                            />
+                            >
+                                <option value="">{catsLoading ? "Loading..." : "— Select category —"}</option>
+                                {categories.map((c) => (
+                                    <option key={c.id} value={String(c.id)}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
                             {errors.category && <p className="text-rose-500 text-[10px] font-bold">{errors.category.message}</p>}
                         </div>
                         <div className="space-y-2">
@@ -359,7 +406,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                                 <option value="">— Select unit —</option>
                                 <option value="piece">Piece</option>
                                 <option value="kg">Kg</option>
-                                <option value="Gram">100g</option>
+                                <option value="g">100g</option>
                             </select>
                         </div>
                         <div className="space-y-2">
@@ -374,7 +421,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                         <input
                             type="checkbox"
                             {...register("is_available")}
-                            className="w-5 h-5 accent-black rounded cursor-pointer"
+                            className="w-5 h-5 rounded border-gray-300 text-black focus:ring-black"
                         />
                         <label className="text-sm font-medium cursor-pointer">Available for purchase</label>
                     </div>
@@ -415,18 +462,33 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                         {/* Existing Images */}
                         {existingImages.length > 0 && (
                             <div className="flex gap-4 overflow-x-auto pb-2">
-                                {existingImages.map((img) => (
-                                    <div key={img.id} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shrink-0 group">
-                                        <img src={img.image} alt="Gallery" className="w-full h-full object-cover" />
-                                        <button
-                                            type="button"
-                                            onClick={() => setExistingImages(prev => prev.filter(i => i.id !== img.id))}
-                                            className="absolute top-1 right-1 bg-white/90 text-rose-500 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
+                                {existingImages.map((img, idx) => {
+                                    const galleryItems: MediaItem[] = existingImages.map(i => ({ id: i.id, type: "image", src: i.image }));
+                                    return (
+                                        <div key={img.id} className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shrink-0 group">
+                                            <img src={img.image} alt="Gallery" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openLightbox(galleryItems, idx)}
+                                                    className="bg-white/90 text-slate-700 p-1.5 rounded-md"
+                                                >
+                                                    <Eye size={13} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRemovedImageIds(prev => [...prev, img.id]);
+                                                        setExistingImages(prev => prev.filter(i => i.id !== img.id));
+                                                    }}
+                                                    className="bg-white/90 text-rose-500 p-1.5 rounded-md"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -447,16 +509,33 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
 
                         {existingVideos.length > 0 && (
                             <div className="flex flex-col gap-2">
-                                {existingVideos.map((vid) => (
-                                    <div key={vid.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                        <a href={vid.video_url || vid.video_file || undefined} target="_blank" rel="noreferrer" className="text-sm font-medium text-cyan-600 hover:underline truncate">
-                                            {vid.title || "Product Video"}
-                                        </a>
-                                        <button type="button" onClick={() => setExistingVideos(prev => prev.filter(v => v.id !== vid.id))} className="text-rose-500 p-1 hover:bg-rose-50 rounded-lg transition-colors">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
+                                {existingVideos.map((vid, idx) => {
+                                    const videoItems: MediaItem[] = existingVideos
+                                        .filter(v => v.video_url || v.video_file)
+                                        .map(v => ({ id: v.id, type: "video", src: (v.video_url || v.video_file)!, title: v.title || undefined }));
+                                    const videoIdx = videoItems.findIndex(v => v.id === vid.id);
+                                    return (
+                                        <div key={vid.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                            <span className="text-sm font-medium text-slate-700 truncate">{vid.title || "Product Video"}</span>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {(vid.video_url || vid.video_file) && videoIdx !== -1 && (
+                                                    <button type="button" onClick={() => openLightbox(videoItems, videoIdx)} className="text-slate-500 p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
+                                                        <Eye size={15} />
+                                                    </button>
+                                                )}
+                                                <a href={(vid.video_url || vid.video_file) || undefined} target="_blank" rel="noreferrer" className="text-cyan-600 p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-sm font-medium">
+                                                    ↗
+                                                </a>
+                                                <button type="button" onClick={() => {
+                                                    setRemovedVideoIds(prev => [...prev, vid.id]);
+                                                    setExistingVideos(prev => prev.filter(v => v.id !== vid.id));
+                                                }} className="text-rose-500 p-1.5 hover:bg-rose-50 rounded-lg transition-colors">
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -466,12 +545,43 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ dto, productId }) => 
                             <p className="text-sm font-bold text-cyan-600">Select new videos to upload</p>
                             <p className="text-xs text-slate-400 mt-1">{(watch("new_videos")?.length || 0)} files selected</p>
                         </div>
+
+                        {/* Add Video by URL */}
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold uppercase text-[#A1A1AA] flex items-center gap-1"><LinkIcon size={12} /> Or add by URL</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="text"
+                                    value={newVideoUrl}
+                                    onChange={e => setNewVideoUrl(e.target.value)}
+                                    placeholder="https://..."
+                                    className="flex-1 px-4 py-2.5 bg-[#FAFAFA] border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-black outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={newVideoTitle}
+                                    onChange={e => setNewVideoTitle(e.target.value)}
+                                    placeholder="Title (optional)"
+                                    className="sm:w-44 px-4 py-2.5 bg-[#FAFAFA] border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-black outline-none"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                 </section>
 
 
             </form>
+
+            {/* Media Lightbox */}
+            {lightbox && (
+                <MediaLightbox
+                    items={lightbox.items}
+                    index={lightbox.index}
+                    onClose={() => setLightbox(null)}
+                    onChange={(i) => setLightbox(prev => prev ? { ...prev, index: i } : null)}
+                />
+            )}
         </div>
     );
 };
@@ -497,10 +607,10 @@ const MainImageUpload = ({ register, watch, existingImageUrl }: any) => {
         <div className={`border-2 border-dashed border-[#E4E4E7] rounded-xl flex flex-col items-center justify-center text-center bg-[#FAFAFA] relative cursor-pointer overflow-hidden ${activePreview ? "p-0" : "p-10"}`}>
             <input type="file" accept="image/*" {...register("image")} className="absolute inset-0 opacity-0 z-10 cursor-pointer" />
             {activePreview ? (
-                <div className="relative w-full h-72">
+                <div className="relative w-full h-48 sm:h-72">
                     <img src={activePreview} alt="Main Preview" className="w-full h-full object-contain" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20 pointer-events-none">
-                        <span className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold shadow-lg">Replace Main Image</span>
+                        <span className="bg-white text-black px-4 py-2 rounded-lg text-[10px] sm:text-xs font-bold shadow-lg">Replace Image</span>
                     </div>
                 </div>
             ) : (

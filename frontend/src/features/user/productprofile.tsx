@@ -4,10 +4,12 @@ import { type ProductDto } from "../admin/products/productApi";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, ShoppingCart, Truck, ShieldCheck, ArrowLeft, Minus, Plus, Heart, Zap, Play, X, MapPin } from "lucide-react";
 import { useAppDispatch, useRequireAuth } from "../../hooks";
-import { addToCart } from "../admin/cart/cartSlice";
+import { fetchCartRequest } from "../admin/cart/cartSlice";
+import { cartsApi } from "../admin/cart/cartApi";
 import { useTranslation } from "react-i18next";
 import { useProductDetails, useProductReviews } from "../../hooks/queries";
 import { useToast } from "../../components/ui/Toast";
+import BackendData from "../../components/ui/BackendData";
 import { API_BASE_URL } from "../../config/constants";
 import {
   extractProductLocationValues,
@@ -18,14 +20,6 @@ import {
 type MediaItem =
   | { type: "image"; id: number; src: string }
   | { type: "video"; id: number; src: string; title: string };
-
-/** Get the best available image: featured → first gallery → main image field */
-const getProductImage = (p: ProductDto): string => {
-  const featured = p.images?.find((img) => img.is_feature);
-  if (featured) return featured.image;
-  if (p.images?.[0]) return p.images[0].image;
-  return p.image || "";
-};
 
 /** Build unified media list from product data */
 const buildMediaList = (product: ProductDto): MediaItem[] => {
@@ -149,7 +143,7 @@ const ProductProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div dir="ltr" className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
           <div className="w-12 h-12 bg-slate-200 rounded-full mb-4" />
           <div className="h-4 bg-slate-200 rounded w-32" />
@@ -160,7 +154,7 @@ const ProductProfile: React.FC = () => {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div dir="ltr" className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
         <p className="text-cyan-500 font-bold mb-4">{error || t("details.notFound")}</p>
         <button
           onClick={() => navigate("/products")}
@@ -177,11 +171,11 @@ const ProductProfile: React.FC = () => {
     : 0;
 
   const unitLabel = product.unit === "kg"
-    ? "Kg"
+    ? t("units.kg")
     : product.unit === "piece"
-      ? "Piece"
+      ? t("units.piece")
       : product.unit === "Gram"
-        ? "100g"
+        ? t("units.gram100")
         : t("details.perUnitFallback");
 
   const availableLocations = extractProductLocationValues(
@@ -195,23 +189,20 @@ const ProductProfile: React.FC = () => {
     : null;
 
   const addItemToCart = (goTo: "cart" | "checkout") => {
-    requireAuth(() => {
-      dispatch(
-        addToCart({
-          id: product.id,
-          name: product.name,
-          price: parseFloat(product.price),
-          discountPrice: product.discount_price ? parseFloat(product.discount_price) : undefined,
-          finalPrice: product.discount_price ? parseFloat(product.discount_price) : parseFloat(product.price),
-          image: getProductImage(product),
-          quantity,
-          stock: product.stock,
-          sku: product.sku,
-          category: product.category_name
-        })
-      );
-      toast.show(`${product.name} added to cart`, "cart");
-      navigate(goTo === "cart" ? "/cart" : "/checkout");
+    requireAuth(async () => {
+      try {
+        const result = await cartsApi.addItem(product.id, quantity);
+        if (result?.error) {
+          toast.show(result.error, "error");
+          return;
+        }
+        dispatch(fetchCartRequest());
+        toast.show(`${product.name} added to cart`, "cart");
+        navigate(goTo === "cart" ? "/cart" : "/checkout");
+      } catch (e: any) {
+        const errorMsg = e?.response?.data?.error || "Failed to add item to cart";
+        toast.show(errorMsg, "error");
+      }
     })();
   };
 
@@ -219,7 +210,7 @@ const ProductProfile: React.FC = () => {
   const activeMedia = selectedMedia || mediaList[0] || null;
 
   return (
-    <div className="min-h-screen bg-white font-sans text-stone-800 pb-20">
+    <div dir="ltr" className="min-h-screen bg-white font-sans text-stone-800 pb-20">
       {/* Back */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <button
@@ -264,7 +255,7 @@ const ProductProfile: React.FC = () => {
                   {t("details.off", { value: discountPercentage })}
                 </span>
               )}
-              {!product.is_available && (
+              {(!product.is_available || product.stock === 0) && (
                 <span className="px-3 py-1.5 bg-cyan-900 text-white text-xs font-black uppercase tracking-widest rounded-lg shadow-lg">
                   {t("details.outOfStock")}
                 </span>
@@ -319,7 +310,7 @@ const ProductProfile: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-bold uppercase tracking-widest text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md">
-                {product.category_name}
+                <BackendData value={product.category_name} />
               </span>
 
               {product.average_rating > 0 && (
@@ -335,8 +326,8 @@ const ProductProfile: React.FC = () => {
               )}
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-black text-stone-900 leading-tight">{product.name}</h1>
-            <p className="text-stone-500 leading-relaxed text-lg">{product.description}</p>
+            <h1 className="text-4xl md:text-5xl font-black text-stone-900 leading-tight"><BackendData value={product.name} /></h1>
+            <p className="text-stone-500 leading-relaxed text-lg"><BackendData value={product.description} /></p>
           </div>
 
           {/* Price block */}
@@ -390,6 +381,13 @@ const ProductProfile: React.FC = () => {
                   <Plus size={18} />
                 </button>
               </div>
+
+              {/* Stock count */}
+              {product.is_available && product.stock > 0 && product.stock < 15 && (
+                <p className={`text-xs font-bold ${product.stock < 7 ? "text-orange-500" : product.stock < 10 ? "text-amber-500" : "text-emerald-600"}`}>
+                  {product.stock === 1 ? t("details.inStockItem", { count: product.stock }) : t("details.inStockItems", { count: product.stock })}
+                </p>
+              )}
             </div>
           </div>
 
@@ -397,16 +395,16 @@ const ProductProfile: React.FC = () => {
           <div className="flex gap-3">
             <button
               onClick={() => addItemToCart("cart")}
-              disabled={!product.is_available}
+              disabled={!product.is_available || product.stock === 0}
               className="flex-1 py-4 bg-stone-900 text-white text-base font-black rounded-2xl hover:bg-stone-800 shadow-xl shadow-stone-900/10 hover:shadow-stone-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
             >
               <ShoppingCart size={22} />
-              {product.is_available ? t("details.addToCart") : t("details.outOfStock")}
+              {product.is_available && product.stock > 0 ? t("details.addToCart") : t("details.outOfStock")}
             </button>
 
             <button
               onClick={() => addItemToCart("checkout")}
-              disabled={!product.is_available}
+              disabled={!product.is_available || product.stock === 0}
               className="flex-1 py-4 bg-cyan-600 text-white text-base font-black rounded-2xl hover:bg-cyan-700 shadow-xl shadow-cyan-600/20 hover:shadow-cyan-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
             >
               <Zap size={22} />
@@ -484,7 +482,7 @@ const ProductProfile: React.FC = () => {
               </div>
               <div>
                 <p className="font-bold text-stone-900">{t("details.meta.fastDelivery.title")}</p>
-                <p className="text-stone-500 text-xs">within 2 or 3 days</p>
+                <p className="text-stone-500 text-xs">Same day delivery</p>
               </div>
             </div>
 
