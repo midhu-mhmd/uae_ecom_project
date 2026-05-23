@@ -1,4 +1,4 @@
-import { call, put, select, takeLatest, takeEvery, take } from "redux-saga/effects";
+import { call, put, select, take, takeLatest, takeEvery, delay } from "redux-saga/effects";
 import type { SagaIterator } from "redux-saga";
 import { cartsApi } from "./cartApi";
 import { adminCartsActions } from "./cartSlice";
@@ -6,6 +6,8 @@ import {
     addToCart,
     removeFromCart,
     updateQuantity,
+    updateQuantitySuccess,
+    updateQuantityFailure,
     clearCart,
     fetchCartRequest,
     fetchCartSuccess,
@@ -135,6 +137,7 @@ function mapApiItemToCartItem(dto: CartItemDto): CartItem {
         image,
         quantity: dto.quantity,
         stock: pd?.stock ?? 999,
+        isAvailable: pd?.is_available ?? true,
         sku: pd?.sku ?? "",
         category: pd?.category_name ?? "",
     };
@@ -212,18 +215,22 @@ function* removeFromCartWorker(action: ReturnType<typeof removeFromCart>): SagaI
     }
 }
 
-/* ── Update cart item quantity ── */
+/* ── Update cart item quantity — spinner shown immediately, API called after short debounce ── */
 function* updateQuantityWorker(action: ReturnType<typeof updateQuantity>): SagaIterator {
+    const { id, quantity } = action.payload;
+    yield delay(400);
     try {
         const isAuthenticated: boolean = yield select(
             (state: RootState) => state.auth.isAuthenticated
         );
         if (!isAuthenticated) return;
 
-        yield call(cartsApi.updateQuantity, action.payload.id, action.payload.quantity);
-        yield put(fetchCartRequest());
+        yield call(cartsApi.updateQuantity, id, quantity);
+        yield put(updateQuantitySuccess({ id, quantity }));
     } catch (e: any) {
         console.error("[Cart Update] Error:", e);
+        const msg = e?.response?.data?.detail || e?.message || "Failed to update quantity";
+        yield put(updateQuantityFailure({ id, error: msg }));
     }
 }
 
@@ -252,6 +259,6 @@ export function* userCartSaga(): SagaIterator {
     // Map individual actions to workers
     yield takeEvery(addToCart.type, addToCartWorker);
     yield takeEvery(removeFromCart.type, removeFromCartWorker);
-    yield takeEvery(updateQuantity.type, updateQuantityWorker);
+    yield takeLatest(updateQuantity.type, updateQuantityWorker);
     yield takeEvery(clearCart.type, clearCartWorker);
 }

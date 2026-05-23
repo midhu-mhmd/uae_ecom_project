@@ -5,7 +5,7 @@ import {
     User, Mail, Phone, LogOut, Camera, Save, Loader2, Calendar,
     MapPin, Package, Plus, Edit3, X, Home, Briefcase, Globe, Star,
     ChevronRight, CheckCircle, Hash, Clock, Truck, XCircle, AlertCircle,
-    ChevronDown, Gift, Copy, Share2, Users, ShoppingBag, Percent
+    ChevronDown, Gift, Copy, Share2, Percent, Tag
 } from "lucide-react";
 import referralInviteImg from "../../assets/referral/referral_invite.png";
 import referralPurchaseImg from "../../assets/referral/referral_purchase.png";
@@ -21,7 +21,7 @@ import { reviewsApi, type ReviewDto } from "../admin/reviews/reviewsApi";
 import { useUserProfile } from "../../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../components/ui/Toast";
-import { tokenManager } from "../../services/api";
+import { api, tokenManager } from "../../services/api";
 import useLanguageToggle from "../../hooks/useLanguageToggle";
 import BackendData from "../../components/ui/BackendData";
 import { useTranslation } from "react-i18next";
@@ -29,22 +29,128 @@ import { useTranslation } from "react-i18next";
 /* ═══════════════════════════════════════════════
    Types
    ═══════════════════════════════════════════════ */
-type TabKey = "profile" | "orders" | "addresses" | "reviews" | "referrals";
+type TabKey = "profile" | "orders" | "addresses" | "reviews" | "referrals_coupons";
+
+interface ProfilePageProps {
+    // No longer using initialSection - always start from default tabs
+}
 
 const EMIRATES = [
     { value: "abu_dhabi", label: "Abu Dhabi" },
-    { value: "dubai", label: "Dubai" },
-    { value: "sharjah", label: "Sharjah" },
-    { value: "ajman", label: "Ajman" },
-    { value: "umm_al_quwain", label: "Umm Al Quwain" },
-    { value: "ras_al_khaimah", label: "Ras Al Khaimah" },
-    { value: "fujairah", label: "Fujairah" },
 ];
+
+type CouponStatusKey = "active" | "inactive" | "expired" | "redeemed" | "deleted";
+type CouponTypeKey = "standard" | "referral" | "firstOrder";
+
+type ProfileCouponCard = {
+    id: string;
+    code: string;
+    title: string;
+    description: string;
+    badge?: string;
+    statusKey: CouponStatusKey;
+    statusLabel: string;
+    statusClassName: string;
+    typeKey: CouponTypeKey;
+    typeLabel: string;
+    validUntil: string;
+    usage: string;
+};
+
+const parseCouponAmount = (value?: unknown) => {
+    const parsed = Number.parseFloat(String(value ?? 0));
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatCouponDate = (value?: string | null) => {
+    if (!value) return null;
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    return parsed.toLocaleDateString("en-AE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+};
+
+const normalizeProfileCoupon = (raw: any, index: number, t: any): ProfileCouponCard | null => {
+    const code = String(raw?.coupon_code ?? raw?.code ?? raw?.promo_code ?? "").trim().toUpperCase();
+
+    if (!code) return null;
+
+    const discountType = String(raw?.discount_type ?? "").toLowerCase();
+    const discountValue = raw?.discount_value ?? raw?.discount_amount ?? raw?.amount ?? raw?.percentage;
+    let badge: string | undefined;
+
+    if (discountType === "percentage" && discountValue !== undefined && discountValue !== null && String(discountValue).trim() !== "") {
+        badge = `${parseCouponAmount(discountValue).toFixed(0)}% OFF`;
+    } else if (discountValue !== undefined && discountValue !== null && String(discountValue).trim() !== "") {
+        badge = `AED ${parseCouponAmount(discountValue).toFixed(0)} OFF`;
+    }
+
+    const validUntil = formatCouponDate(raw?.valid_to) ?? t("profile.coupons.noExpiry", { defaultValue: "No expiry" });
+    const usageLimit = raw?.usage_limit;
+    const usedCount = Number(raw?.used_count ?? 0);
+    
+    const isDeleted = Boolean(raw?.deleted_at);
+    const isInactive = raw?.is_active === false;
+    const isExpired = Boolean(raw?.valid_to) && !Number.isNaN(new Date(raw.valid_to).getTime()) && new Date(raw.valid_to).getTime() < Date.now();
+    const isRedeemed = usageLimit !== null && usageLimit !== undefined && usedCount >= Number(usageLimit);
+    
+    const usage = isRedeemed 
+        ? t("profile.coupons.exhausted", { defaultValue: "Exhausted" })
+        : usageLimit === null || usageLimit === undefined
+            ? t("profile.coupons.unlimited", { defaultValue: "Unlimited" })
+            : `${usedCount} / ${usageLimit}`;
+
+    let statusKey: CouponStatusKey = "active";
+    if (isDeleted) statusKey = "deleted";
+    else if (isInactive) statusKey = "inactive";
+    else if (isExpired) statusKey = "expired";
+    else if (isRedeemed) statusKey = "redeemed";
+
+    const statusConfig: Record<CouponStatusKey, { label: string; className: string }> = {
+        active: { label: t("profile.coupons.active", { defaultValue: "Active" }), className: "bg-emerald-50 text-emerald-700" },
+        inactive: { label: t("profile.coupons.inactive", { defaultValue: "Inactive" }), className: "bg-slate-100 text-slate-500" },
+        expired: { label: t("profile.coupons.expired", { defaultValue: "Expired" }), className: "bg-amber-50 text-amber-700" },
+        redeemed: { label: t("profile.coupons.redeemed", { defaultValue: "Redeemed" }), className: "bg-rose-50 text-rose-700" },
+        deleted: { label: t("profile.coupons.deleted", { defaultValue: "Deleted" }), className: "bg-slate-100 text-slate-500" },
+    };
+
+    const typeKey: CouponTypeKey = raw?.is_referral_reward ? "referral" : raw?.is_first_order_reward ? "firstOrder" : "standard";
+    const typeLabel = typeKey === "referral"
+        ? t("profile.coupons.referralReward", { defaultValue: "Referral reward" })
+        : typeKey === "firstOrder"
+            ? t("profile.coupons.firstOrderReward", { defaultValue: "First order reward" })
+            : t("profile.coupons.availableCoupon", { defaultValue: "Available coupon" });
+
+    const title = String(raw?.title ?? raw?.name ?? code).trim() || code;
+    const description = String(
+        raw?.description || raw?.message || raw?.short_description || t("profile.coupons.availableCoupon", { defaultValue: "Available coupon" })
+    ).trim();
+
+    return {
+        id: String(raw?.id ?? `${code}-${index}`),
+        code,
+        title,
+        description,
+        badge,
+        statusKey,
+        statusLabel: statusConfig[statusKey].label,
+        statusClassName: statusConfig[statusKey].className,
+        typeKey,
+        typeLabel,
+        validUntil,
+        usage,
+    };
+};
 
 /* ═══════════════════════════════════════════════
    Main Component
    ═══════════════════════════════════════════════ */
-const ProfilePage: React.FC = () => {
+const ProfilePage: React.FC<ProfilePageProps> = () => {
     // Bring in i18n to ensure we can listen to language state on initial load
     const { t, i18n } = useTranslation("profile");
     const dispatch = useDispatch();
@@ -57,7 +163,6 @@ const ProfilePage: React.FC = () => {
     const [uploadingImage, setUploadingImage] = useState(false);
 
     const { data: profileData, isLoading: loading } = useUserProfile(isAuthenticated);
-    // Removed useEffect that called refetch on mount to avoid double /me call
 
     // Force document direction to update dynamically based on language selection
     useEffect(() => {
@@ -138,11 +243,11 @@ const ProfilePage: React.FC = () => {
     };
 
     const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-        { key: "profile", label: "Personal Info", icon: <User size={18} /> },
-        { key: "orders", label: "My Orders", icon: <Package size={18} /> },
-        { key: "reviews", label: "Reviews", icon: <Star size={18} /> },
-        { key: "addresses", label: "Addresses", icon: <MapPin size={18} /> },
-        { key: "referrals", label: "Referrals", icon: <Gift size={18} /> },
+        { key: "profile", label: t("profile.sidebar.personalInfo", { defaultValue: "Personal Info" }), icon: <User size={18} /> },
+        { key: "orders", label: t("profile.sidebar.myOrders", { defaultValue: "My Orders" }), icon: <Package size={18} /> },
+        { key: "reviews", label: t("profile.sidebar.reviews", { defaultValue: "Reviews" }), icon: <Star size={18} /> },
+        { key: "addresses", label: t("profile.sidebar.addresses", { defaultValue: "Addresses" }), icon: <MapPin size={18} /> },
+        { key: "referrals_coupons", label: t("profile.sidebar.rewards", { defaultValue: "Rewards" }), icon: <Gift size={18} /> },
     ];
 
     return (
@@ -252,11 +357,39 @@ const ProfilePage: React.FC = () => {
                                     onError={(msg) => toast.show(msg, "error")}
                                 />
                             )}
-                            {activeTab === "referrals" && (
-                                <ReferralTab
-                                    key="referrals"
-                                    user={displayUser}
-                                />
+                            {activeTab === "referrals_coupons" && (
+                                <div key="referrals_coupons" className="space-y-8">
+                                    {/* Referrals Section */}
+                                    <section className="space-y-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-600 shrink-0">
+                                                <Gift size={20} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.sidebar.referrals", { defaultValue: "Referrals" })}</h2>
+                                                <p className="text-[11px] md:text-xs text-slate-400">{t("profile.referrals.title", { defaultValue: "Friends Who Refer" })}</p>
+                                            </div>
+                                        </div>
+                                        <ReferralTab user={displayUser} />
+                                    </section>
+
+                                    {/* Divider */}
+                                    <div className="border-t border-slate-100" />
+
+                                    {/* Coupons Section */}
+                                    <section className="space-y-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                                                <Tag size={20} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.sidebar.coupons", { defaultValue: "Coupons" })}</h2>
+                                                <p className="text-[11px] md:text-xs text-slate-400">{t("profile.coupons.title", { defaultValue: "Available Coupons" })}</p>
+                                            </div>
+                                        </div>
+                                        <CouponsTab />
+                                    </section>
+                                </div>
                             )}
                         </AnimatePresence>
                     </div>
@@ -293,6 +426,11 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ profileData, loading,
     const dispatch = useDispatch();
     const isVerified = profileData?.is_email_verified;
     const isPhoneVerified = profileData?.is_phone_verified;
+    const maxDateOfBirth = (() => {
+        const cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 10);
+        return cutoff.toISOString().slice(0, 10);
+    })();
 
     // OTP Modal State
     const [otpModalState, setOtpModalState] = useState<{
@@ -687,8 +825,8 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ profileData, loading,
                         <User size={20} />
                     </div>
                     <div>
-                        <h2 className="text-base md:text-lg font-bold text-slate-900">Personal Information</h2>
-                        <p className="text-[11px] md:text-xs text-slate-400">Your personal details and preferences</p>
+                        <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.personalInfo.title", { defaultValue: "Personal Information" })}</h2>
+                        <p className="text-[11px] md:text-xs text-slate-400">{t("profile.personalInfo.subtitle", { defaultValue: "Your personal details and preferences" })}</p>
                     </div>
                 </div>
 
@@ -829,7 +967,7 @@ const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({ profileData, loading,
                                 type="date"
                                 value={dob}
                                 onChange={(e) => setDob(e.target.value)}
-                                max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 10); return d.toISOString().slice(0, 10); })()}
+                                max={maxDateOfBirth}
                                 min="1900-01-01"
                                 className="w-full ps-11 pe-3 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus:bg-white focus:border-slate-300 outline-none"
                             />
@@ -929,8 +1067,8 @@ const OrdersTab: React.FC = () => {
                         <Package size={20} />
                     </div>
                     <div>
-                        <h2 className="text-base md:text-lg font-bold text-slate-900">My Orders</h2>
-                        <p className="text-[11px] md:text-xs text-slate-400">Your recent purchases</p>
+                        <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.orders.title", { defaultValue: "My Orders" })}</h2>
+                        <p className="text-[11px] md:text-xs text-slate-400">{t("profile.orders.subtitle", { defaultValue: "Your recent purchases" })}</p>
                     </div>
                 </div>
                 <Link to="/orders" className="text-xs font-bold text-cyan-600 hover:underline flex items-center gap-1 self-end sm:self-auto">
@@ -1005,6 +1143,7 @@ const OrdersTab: React.FC = () => {
    Reviews Tab — list + edit
    ═══════════════════════════════════════════════ */
 const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
+    const { t } = useTranslation("profile");
     const [reviews, setReviews] = useState<ReviewDto[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -1096,12 +1235,12 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                     <Star size={20} />
                 </div>
                 <div>
-                    <h2 className="text-base md:text-lg font-bold text-slate-900">My Reviews</h2>
-                    <p className="text-[11px] md:text-xs text-slate-400">All reviews you have written</p>
+                    <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.reviews.title", { defaultValue: "My Reviews" })}</h2>
+                    <p className="text-[11px] md:text-xs text-slate-400">{t("profile.reviews.subtitle", { defaultValue: "All reviews you have written" })}</p>
                 </div>
             </div>
 
-            {loading && <div className="text-sm text-slate-500">Loading reviews…</div>}
+            {loading && <div className="text-sm text-slate-500">{t("profile.reviews.loading", { defaultValue: "Loading reviews…" })}</div>}
             {error && <div className="text-sm text-rose-600">{error}</div>}
             {!loading && !error && (
                 <>
@@ -1116,10 +1255,10 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                                             className="w-full flex items-center justify-between p-4"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Review</span>
+                                                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("profile.reviews.reviewLabel", { defaultValue: "Review" })}</span>
                                                 <span className="text-sm font-bold text-slate-900">{r.product_name || `#${r.product}`}</span>
                                             </div>
-                                            <span className="text-xs font-bold text-slate-500">{isOpen ? "Hide" : "View"}</span>
+                                            <span className="text-xs font-bold text-slate-500">{isOpen ? t("profile.reviews.hide", { defaultValue: "Hide" }) : t("profile.reviews.view", { defaultValue: "View" })}</span>
                                         </button>
                                         {isOpen && (
                                             <div className="px-4 pb-4">
@@ -1152,7 +1291,7 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                                                 )}
                                                 {r.admin_response && (
                                                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-3">
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-600 mb-1">Admin Response</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-600 mb-1">{t("profile.reviews.adminResponse", { defaultValue: "Admin Response" })}</p>
                                                         <p className="text-xs text-slate-700">{r.admin_response}</p>
                                                     </div>
                                                 )}
@@ -1161,7 +1300,7 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                                                         onClick={() => openEdit(r)}
                                                         className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800"
                                                     >
-                                                        Edit
+                                                        {t("profile.reviews.edit", { defaultValue: "Edit" })}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1171,7 +1310,7 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                             })}
                         </div>
                     ) : (
-                        <p className="text-sm text-slate-500">You haven’t written any reviews yet.</p>
+                        <p className="text-sm text-slate-500">{t("profile.reviews.empty", { defaultValue: "You haven’t written any reviews yet." })}</p>
                     )}
                 </>
             )}
@@ -1187,7 +1326,7 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                         <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" onClick={() => setEditing(null)} />
                         <div className="relative bg-white rounded-2xl p-6 w-full max-w-sm z-10 border border-slate-200">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-bold text-slate-900">Edit Review</h3>
+                                <h3 className="text-sm font-bold text-slate-900">{t("profile.reviews.editReview", { defaultValue: "Edit Review" })}</h3>
                                 <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-700">
                                     <X size={16} />
                                 </button>
@@ -1213,10 +1352,10 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                                 rows={3}
                                 onChange={(e) => setEditComment(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg mb-3 text-sm"
-                                placeholder="Update your comment"
+                                placeholder={t("profile.reviews.updateComment", { defaultValue: "Update your comment" })}
                             />
                             <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-2">
-                                Add Photos (Optional)
+                                {t("profile.reviews.addPhotos", { defaultValue: "Add Photos (Optional)" })}
                             </label>
                             <input
                                 type="file"
@@ -1241,14 +1380,14 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
                                     className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700"
                                     disabled={saving}
                                 >
-                                    Cancel
+                                    {t("profile.reviews.cancel", { defaultValue: "Cancel" })}
                                 </button>
                                 <button
                                     onClick={submitEdit}
                                     className="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 disabled:opacity-50"
                                     disabled={saving}
                                 >
-                                    {saving ? "Saving…" : "Save"}
+                                    {saving ? t("profile.reviews.saving", { defaultValue: "Saving…" }) : t("profile.reviews.save", { defaultValue: "Save" })}
                                 </button>
                             </div>
                         </div>
@@ -1290,6 +1429,8 @@ const ReviewsTab: React.FC<{ userId: number }> = ({ userId }) => {
 import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: string) => void }> = ({ onSuccess, onError }) => {
+    const dispatch = useDispatch();
+    const { user } = useSelector((state: any) => state.auth); // eslint-disable-line @typescript-eslint/no-explicit-any
     // State for ConfirmModal
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -1318,18 +1459,43 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
     const [form, setForm] = useState({
         label: "home", full_name: "", phone_number: "", building_name: "",
         flat_villa_number: "", street_address: "", area: "", city: "",
-        emirate: "", country: "AE",
+        emirate: "abu_dhabi", country: "AE",
         latitude: null as number | null, longitude: null as number | null,
     });
     const [addrCountryCode, setAddrCountryCode] = useState("+971");
     const [addrDropdownOpen, setAddrDropdownOpen] = useState(false);
     const addrDropdownRef = useRef<HTMLDivElement>(null);
     const [addrErrors, setAddrErrors] = useState<Record<string, string>>({});
+    const [addressPhoneOtpStep, setAddressPhoneOtpStep] = useState<"idle" | "otp">("idle");
+    const [addressPhoneOtp, setAddressPhoneOtp] = useState("");
+    const [sendingAddressOtp, setSendingAddressOtp] = useState(false);
+    const [verifyingAddressOtp, setVerifyingAddressOtp] = useState(false);
+    const [addressPhoneVerified, setAddressPhoneVerified] = useState(false);
+    const [addressPhoneVerificationError, setAddressPhoneVerificationError] = useState<string | null>(null);
     const addressCountries = [
         { code: "+971", flag: "https://flagcdn.com/w40/ae.png", name: "UAE" },
         { code: "+91", flag: "https://flagcdn.com/w40/in.png", name: "India" },
         { code: "+86", flag: "https://flagcdn.com/w40/cn.png", name: "China" },
     ];
+
+    const getPhonePrefill = (rawPhone?: string) => {
+        const digitsPhone = String(rawPhone || "").replace(/[^\d+]/g, "");
+        const supportedCodes = ["+971", "+91", "+86"];
+
+        for (const code of supportedCodes) {
+            if (digitsPhone.startsWith(code)) {
+                return {
+                    countryCode: code,
+                    localNumber: digitsPhone.slice(code.length).replace(/^0+/, ""),
+                };
+            }
+        }
+
+        return {
+            countryCode: "+971",
+            localNumber: digitsPhone.replace(/[^\d]/g, "").replace(/^0+/, ""),
+        };
+    };
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (addrDropdownRef.current && !addrDropdownRef.current.contains(e.target as Node)) {
@@ -1348,8 +1514,6 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
             default: return { length: 10, pattern: null, name: "Phone" };
         }
     };
-    const allowedUaeCities = EMIRATES.map(e => e.label.toLowerCase());
-
     useEffect(() => {
         customersApi.listAddresses()
             .then((data) => { setAddresses(Array.isArray(data) ? data : data.results || []); })
@@ -1357,12 +1521,45 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
             .finally(() => setLoading(false));
     }, []);
 
-    const resetForm = () => setForm({
-        label: "home", full_name: "", phone_number: "", building_name: "",
-        flat_villa_number: "", street_address: "", area: "", city: "",
-        emirate: "", country: "AE",
-        latitude: null, longitude: null,
-    });
+    const phoneVerified: boolean = Boolean(user?.is_phone_verified ?? user?.profile?.is_phone_verified);
+    const accountPhoneComposed = String(user?.phone_number || "").replace(/\s+/g, "");
+    const composedAddressPhone = `${addrCountryCode}${(form.phone_number || "").replace(/[^\d]/g, "").replace(/^0+/, "")}`;
+    const isAddressPhoneSameAsAccount = Boolean(accountPhoneComposed) && composedAddressPhone === accountPhoneComposed;
+    const addressPhoneReq = getAddrPhoneRequirements(addrCountryCode);
+    const isAddressPhoneValid = (() => {
+        const digits = (form.phone_number || "").replace(/[^\d]/g, "");
+        return digits.length === addressPhoneReq.length && (!addressPhoneReq.pattern || addressPhoneReq.pattern.test(digits));
+    })();
+    const isAddressPhoneOtpVerified = addressPhoneVerified || (phoneVerified && isAddressPhoneSameAsAccount);
+
+    const resetForm = () => {
+        const prefill = getPhonePrefill(user?.phone_number);
+        setForm({
+            label: "home", full_name: "", phone_number: prefill.localNumber, building_name: "",
+            flat_villa_number: "", street_address: "", area: "", city: "",
+            emirate: "abu_dhabi", country: "AE",
+            latitude: null, longitude: null,
+        });
+        setAddrCountryCode(prefill.countryCode);
+        setAddressPhoneOtpStep("idle");
+        setAddressPhoneOtp("");
+        setAddressPhoneVerificationError(null);
+        setAddressPhoneVerified(false);
+    };
+
+    useEffect(() => {
+        if (!showForm) return;
+        const prefill = getPhonePrefill(user?.phone_number);
+        setAddrCountryCode(prefill.countryCode);
+        setForm((prev) => ({
+            ...prev,
+            phone_number: prev.phone_number || prefill.localNumber,
+        }));
+        setAddressPhoneOtpStep("idle");
+        setAddressPhoneOtp("");
+        setAddressPhoneVerificationError(null);
+        setAddressPhoneVerified(false);
+    }, [showForm, user?.phone_number]);
 
     const handleSave = async () => {
         const errors: Record<string, string> = {};
@@ -1376,11 +1573,11 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
         if (!form.area || !form.area.trim()) {
             errors.area = "Area is required";
         }
-        if (!form.city || !form.city.trim()) {
-            errors.city = "City is required";
-        }
         if (!form.emirate || !form.emirate.trim()) {
             errors.emirate = "Please select an emirate";
+        }
+        if (form.emirate && form.emirate !== "abu_dhabi") {
+            errors.emirate = "Delivery is currently available only in Abu Dhabi.";
         }
         // Phone validation by country
         const req = getAddrPhoneRequirements(addrCountryCode);
@@ -1388,12 +1585,8 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
         if (digits.length !== req.length || (req.pattern && !req.pattern.test(digits))) {
             errors.phone_number = `${req.name}: ${req.length} digits${req.pattern ? ", specific starting digits required" : ""}`;
         }
-        // City validation for UAE
-        if (addrCountryCode === "+971" && form.city) {
-            const c = form.city.trim().toLowerCase();
-            if (!allowedUaeCities.includes(c)) {
-                errors.city = "Select a valid UAE city/emirate";
-            }
+        if (!isAddressPhoneOtpVerified) {
+            errors.phone_number = "Please verify this phone number with OTP before saving the address.";
         }
         setAddrErrors(errors);
         if (Object.keys(errors).length > 0) {
@@ -1430,13 +1623,16 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                         <MapPin size={20} />
                     </div>
                     <div>
-                        <h2 className="text-base md:text-lg font-bold text-slate-900">Saved Addresses</h2>
-                        <p className="text-[11px] md:text-xs text-slate-400">Manage your delivery addresses</p>
+                        <h2 className="text-base md:text-lg font-bold text-slate-900">{t("profile.addresses.title", { defaultValue: "Saved Addresses" })}</h2>
+                        <p className="text-[11px] md:text-xs text-slate-400">{t("profile.addresses.subtitle", { defaultValue: "Manage your delivery addresses" })}</p>
                     </div>
                 </div>
                 {!showForm && (
                     <button
-                        onClick={() => setShowForm(true)}
+                        onClick={() => {
+                            resetForm();
+                            setShowForm(true);
+                        }}
                         className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-cyan-600 text-white text-xs font-bold hover:bg-cyan-700 transition-colors"
                     >
                         <Plus size={14} /> {t("profile.addresses.addAddress")}
@@ -1459,6 +1655,10 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pin Your Location</p>
                                 <GoogleMapPicker
                                     onSelect={(result: MapPickerResult) => {
+                                        const normalizedEmirate = result.emirate
+                                            ? result.emirate.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_+|_+$/g, "")
+                                            : "";
+
                                         setForm((prev) => ({
                                             ...prev,
                                             latitude: result.lat,
@@ -1466,10 +1666,21 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                             ...(result.street ? { street_address: result.street } : {}),
                                             ...(result.area ? { area: result.area } : {}),
                                             ...(result.city ? { city: result.city } : {}),
-                                            ...(result.emirate
-                                                ? { emirate: result.emirate.toLowerCase().replace(/\s+/g, "_") }
-                                                : {}),
+                                            ...(normalizedEmirate ? { emirate: normalizedEmirate } : {}),
                                         }));
+
+                                        setAddrErrors((prev) => {
+                                            const next = { ...prev };
+                                            if (result.street) delete next.street_address;
+                                            if (result.area) delete next.area;
+                                            if (result.city) delete next.city;
+                                            if (normalizedEmirate && normalizedEmirate !== "abu_dhabi") {
+                                                next.emirate = "Delivery is currently available only in Abu Dhabi.";
+                                            } else if (normalizedEmirate) {
+                                                delete next.emirate;
+                                            }
+                                            return next;
+                                        });
                                     }}
                                 />
                             </div>
@@ -1535,7 +1746,15 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                                         <button
                                                             key={c.code}
                                                             type="button"
-                                                            onClick={() => { setAddrCountryCode(c.code); setAddrDropdownOpen(false); }}
+                                                            onClick={() => {
+                                                                setAddrCountryCode(c.code);
+                                                                setAddrDropdownOpen(false);
+                                                                setAddressPhoneOtpStep("idle");
+                                                                setAddressPhoneOtp("");
+                                                                setAddressPhoneVerificationError(null);
+                                                                setAddressPhoneVerified(false);
+                                                                if (addrErrors.phone_number) setAddrErrors(prev => { const n = { ...prev }; delete n.phone_number; return n; });
+                                                            }}
                                                             className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-cyan-50 ${c.code === addrCountryCode ? "bg-cyan-50 text-cyan-600" : "text-slate-700"}`}
                                                         >
                                                             <img src={c.flag} alt={c.name} className="w-5 h-[14px] object-cover rounded-sm" />
@@ -1550,6 +1769,10 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                             value={form.phone_number}
                                             onChange={(e) => {
                                                 setForm((p) => ({ ...p, phone_number: e.target.value.replace(/[^\d]/g, "") }));
+                                                setAddressPhoneOtpStep("idle");
+                                                setAddressPhoneOtp("");
+                                                setAddressPhoneVerificationError(null);
+                                                setAddressPhoneVerified(false);
                                                 if (addrErrors.phone_number) setAddrErrors(prev => { const n = { ...prev }; delete n.phone_number; return n; });
                                             }}
                                             placeholder={`${getAddrPhoneRequirements(addrCountryCode).length} digits`}
@@ -1559,6 +1782,91 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                         />
                                     </div>
                                     {addrErrors.phone_number && <p className="text-[10px] text-rose-500 font-medium px-1">{addrErrors.phone_number}</p>}
+                                    {addressPhoneVerificationError && <p className="text-[10px] text-rose-500 font-medium px-1">{addressPhoneVerificationError}</p>}
+
+                                    {!isAddressPhoneOtpVerified && (
+                                        <div className="px-1 pt-1 space-y-2">
+                                            {addressPhoneOtpStep === "idle" ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        setAddressPhoneVerificationError(null);
+                                                        if (!isAddressPhoneValid) {
+                                                            setAddressPhoneVerificationError(`${addressPhoneReq.name}: ${addressPhoneReq.length} digits${addressPhoneReq.pattern ? ", specific starting digits required" : ""}`);
+                                                            return;
+                                                        }
+                                                        try {
+                                                            setSendingAddressOtp(true);
+                                                            await profileApi.sendProfileOtp({
+                                                                otp_type: "phone",
+                                                                phone_number: composedAddressPhone,
+                                                            } as any);
+                                                            setAddressPhoneOtpStep("otp");
+                                                        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+                                                            const apiErr = err?.response?.data;
+                                                            const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : "Failed to send OTP. Try again.");
+                                                            setAddressPhoneVerificationError(detail);
+                                                        } finally {
+                                                            setSendingAddressOtp(false);
+                                                        }
+                                                    }}
+                                                    disabled={sendingAddressOtp || !isAddressPhoneValid}
+                                                    className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+                                                >
+                                                    {sendingAddressOtp ? "Sending..." : "Verify this phone with OTP"}
+                                                </button>
+                                            ) : (
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        value={addressPhoneOtp}
+                                                        onChange={(e) => setAddressPhoneOtp(e.target.value.replace(/\D/g, ""))}
+                                                        maxLength={6}
+                                                        placeholder="6 digits"
+                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            setAddressPhoneVerificationError(null);
+                                                            if (addressPhoneOtp.length < 6) {
+                                                                setAddressPhoneVerificationError("Enter the 6-digit OTP.");
+                                                                return;
+                                                            }
+                                                            try {
+                                                                setVerifyingAddressOtp(true);
+                                                                const res: any = await profileApi.verifyProfileOtp({
+                                                                    otp_type: "phone",
+                                                                    otp_code: addressPhoneOtp,
+                                                                    phone_number: composedAddressPhone,
+                                                                } as any);
+                                                                const access = res?.access || res?.accessToken || res?.token;
+                                                                if (access) tokenManager.set(access);
+                                                                const freshUser = res?.user || (await profileApi.getMe());
+                                                                dispatch(setUser(freshUser));
+                                                                setAddressPhoneVerified(true);
+                                                                setAddressPhoneOtpStep("idle");
+                                                                setAddressPhoneOtp("");
+                                                                setAddrErrors(prev => { const n = { ...prev }; delete n.phone_number; return n; });
+                                                            } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+                                                                const apiErr = err?.response?.data;
+                                                                const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : "OTP verification failed.");
+                                                                setAddressPhoneVerificationError(detail);
+                                                            } finally {
+                                                                setVerifyingAddressOtp(false);
+                                                            }
+                                                        }}
+                                                        disabled={verifyingAddressOtp || addressPhoneOtp.length < 6}
+                                                        className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
+                                                    >
+                                                        {verifyingAddressOtp ? "Verifying..." : "Verify"}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {isAddressPhoneOtpVerified && (
+                                        <p className="text-[10px] text-emerald-600 font-bold px-1 pt-1">Phone verified. You can save this address.</p>
+                                    )}
                                 </div>
 
                                 {/* Emirate */}
@@ -1583,11 +1891,11 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                     onClick={() => { setShowForm(false); resetForm(); }}
                                     className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
                                 >
-                                    Cancel
+                                    {t("profile.addresses.cancel", { defaultValue: "Cancel" })}
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    disabled={saving}
+                                    disabled={saving || !isAddressPhoneOtpVerified}
                                     className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-cyan-600 text-white rounded-xl text-sm font-bold hover:bg-cyan-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     {saving && <Loader2 size={14} className="animate-spin" />}
@@ -1609,7 +1917,7 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                     <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <MapPin className="text-slate-300" size={28} />
                     </div>
-                    <p className="text-slate-400 text-sm font-medium">No saved addresses</p>
+                    <p className="text-slate-400 text-sm font-medium">{t("profile.addresses.empty", { defaultValue: "No saved addresses" })}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
@@ -1624,7 +1932,7 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                 <span className="text-xs font-bold uppercase tracking-wider text-cyan-600">{addr.label?.toLowerCase() === "home" ? t("profile.addresses.home") : addr.label?.toLowerCase() === "work" ? t("profile.addresses.work") : addr.label ? t("profile.addresses.other") : ""}</span>
                                 {addr.is_default && (
                                     <span className="text-[9px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md ms-auto">
-                                        Default
+                                        {t("profile.addresses.default", { defaultValue: "Default" })}
                                     </span>
                                 )}
                             </div>
@@ -1643,7 +1951,7 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
                                         onClick={() => handleSetDefault(addr.id)}
                                         className="text-[11px] font-bold text-cyan-600 hover:underline inline-block"
                                     >
-                                        Set as Default
+                                        {t("profile.addresses.setAsDefault", { defaultValue: "Set as Default" })}
                                     </button>
                                 )}
                             </div>
@@ -1654,10 +1962,10 @@ const AddressesTab: React.FC<{ onSuccess: (msg: string) => void; onError: (msg: 
             {/* ConfirmModal for address deletion */}
             <ConfirmModal
                 open={deleteId !== null}
-                title="Delete Address"
-                message="Are you sure you want to delete this address? This action cannot be undone."
-                confirmText="Delete"
-                cancelText="Cancel"
+                title={t("profile.addresses.deleteAddress", { defaultValue: "Delete Address" })}
+                message={t("profile.addresses.deleteConfirm", { defaultValue: "Are you sure you want to delete this address? This action cannot be undone." })}
+                confirmText={t("profile.addresses.deleteBtn", { defaultValue: "Delete" })}
+                cancelText={t("profile.addresses.cancel", { defaultValue: "Cancel" })}
                 onConfirm={confirmDeleteAddress}
                 onCancel={() => { if (!deleting) setDeleteId(null); }}
                 loading={deleting}
@@ -1675,6 +1983,7 @@ interface ReferralTabProps {
 }
 
 const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
+    const { t } = useTranslation("profile");
     const toast = useToast();
     const [copied, setCopied] = useState(false);
 
@@ -1720,22 +2029,22 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
     const steps = [
         {
             num: "01",
-            title: "Invite a Friend",
-            desc: "Share your unique referral code with friends and family. Ask them to register on Simak Fresh.",
+            title: t("profile.referrals.steps.one.title", { defaultValue: "Invite a Friend" }),
+            desc: t("profile.referrals.steps.one.desc", { defaultValue: "Share your unique referral code with friends and family. Ask them to register on Simak Fresh." }),
             img: referralInviteImg,
             gradient: "from-cyan-400 to-teal-400",
         },
         {
             num: "02",
-            title: "Friend Makes First Purchase",
-            desc: "Your friend enters your referral code at checkout on their first order.",
+            title: t("profile.referrals.steps.two.title", { defaultValue: "Friend Makes First Purchase" }),
+            desc: t("profile.referrals.steps.two.desc", { defaultValue: "Your friend enters your referral code at checkout on their first order." }),
             img: referralPurchaseImg,
             gradient: "from-violet-400 to-indigo-400",
         },
         {
             num: "03",
-            title: "Both Get 20% OFF",
-            desc: "Your friend gets 20% OFF instantly! Once the order is delivered, you also receive a 20% discount coupon.",
+            title: t("profile.referrals.steps.three.title", { defaultValue: "Both Get 20% OFF" }),
+            desc: t("profile.referrals.steps.three.desc", { defaultValue: "Your friend gets 20% OFF instantly! Once the order is delivered, you also receive a 20% discount coupon." }),
             img: referralRewardImg,
             gradient: "from-amber-400 to-orange-400",
         },
@@ -1754,13 +2063,13 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
                     <Gift size={28} className="text-cyan-600" />
                 </div>
                 <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                    Friends Who Refer<br />
+                    {t("profile.referrals.title", { defaultValue: "Friends Who Refer" })}<br />
                     <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                        Stay Friends Forever
+                        {t("profile.referrals.subtitle", { defaultValue: "Stay Friends Forever" })}
                     </span>
                 </h2>
                 <p className="text-xs md:text-sm text-slate-500 mt-3 max-w-sm mx-auto leading-relaxed">
-                    When you refer your friend to Simak Fresh, you get <strong className="text-slate-700">20% OFF</strong> on your next order and so does your friend. Then you both eat healthy ever after!
+                    {t("profile.referrals.description", { defaultValue: "When you refer your friend to Simak Fresh, you get 20% OFF on your next order and so does your friend. Then you both eat healthy ever after!" })}
                 </p>
             </div>
 
@@ -1772,7 +2081,7 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
 
                 <div className="relative z-10">
                     <p className="text-cyan-100 text-[10px] md:text-[11px] font-bold uppercase tracking-widest mb-2">
-                        Your Referral Code
+                        {t("profile.referrals.codeLabel", { defaultValue: "Your Referral Code" })}
                     </p>
                     <div className="flex items-center gap-3 mb-4">
                         <div className="flex-1 bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-lg md:text-xl font-black tracking-widest select-all">
@@ -1781,8 +2090,8 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
                         <button
                             onClick={() => handleCopy(referralCode)}
                             className={`p-3 rounded-xl font-bold text-sm transition-all ${copied
-                                    ? "bg-emerald-400 text-white"
-                                    : "bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm"
+                                ? "bg-emerald-400 text-white"
+                                : "bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm"
                                 }`}
                             title="Copy code"
                         >
@@ -1796,14 +2105,14 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
                             className="flex-1 flex items-center justify-center gap-2 py-3 bg-white text-cyan-700 rounded-xl font-bold text-sm hover:bg-cyan-50 transition-all shadow-lg shadow-black/10 active:scale-[0.97]"
                         >
                             <Share2 size={16} />
-                            Start Referring, Start Earning!
+                            {t("profile.referrals.startReferring", { defaultValue: "Start Referring, Start Earning!" })}
                         </button>
                         <button
                             onClick={() => handleCopy(referralLink)}
                             className="flex items-center justify-center gap-2 py-3 px-4 bg-white/15 backdrop-blur-sm text-white rounded-xl font-bold text-sm hover:bg-white/25 transition-all border border-white/20"
                         >
                             <Copy size={14} />
-                            Copy Link
+                            {t("profile.referrals.copyLink", { defaultValue: "Copy Link" })}
                         </button>
                     </div>
                 </div>
@@ -1812,8 +2121,8 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
             {/* ── How it Works ── */}
             <div className="mb-8 md:mb-10">
                 <h3 className="text-center text-sm md:text-base font-extrabold text-slate-900 uppercase tracking-wider mb-6 md:mb-8">
-                    Here is How it{" "}
-                    <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">Works</span>
+                    {t("profile.referrals.howItWorks", { defaultValue: "Here is How it Working" }).split("Working")[0]}
+                    <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">{t("profile.referrals.works", { defaultValue: "Works" })}</span>
                 </h3>
 
                 <div className="space-y-5 md:space-y-6">
@@ -1867,42 +2176,215 @@ const ReferralTab: React.FC<ReferralTabProps> = ({ user }) => {
                     className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-cyan-200/50 transition-all active:scale-[0.97]"
                 >
                     <Gift size={18} />
-                    Start Referring, Start Earning!
+                    {t("profile.referrals.startReferring", { defaultValue: "Start Referring, Start Earning!" })}
                 </button>
             </div>
+        </motion.div>
+    );
+};
 
-            {/* ── Stats (optional quick-look) ── */}
-            <div className="grid grid-cols-3 gap-3 mb-8 md:mb-10">
+interface CouponsTabProps {
+    user?: any;
+}
+
+const CouponsTab: React.FC<CouponsTabProps> = () => {
+    const { t } = useTranslation("profile");
+    const toast = useToast();
+    const [coupons, setCoupons] = useState<ProfileCouponCard[]>([]);
+    const [couponsLoading, setCouponsLoading] = useState(true);
+    const [couponsError, setCouponsError] = useState<string | null>(null);
+    const [copiedCouponCode, setCopiedCouponCode] = useState<string | null>(null);
+    const copiedCouponResetRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadCoupons = async () => {
+            setCouponsLoading(true);
+            setCouponsError(null);
+
+            try {
+                const response = await api.get("/marketing/coupons/");
+                const rawCoupons = Array.isArray(response.data)
+                    ? response.data
+                    : Array.isArray(response.data?.results)
+                        ? response.data.results
+                        : [];
+
+                const normalizedCoupons = rawCoupons
+                    .map((coupon: any, index: number) => normalizeProfileCoupon(coupon, index, t))
+                    .filter(Boolean) as ProfileCouponCard[];
+
+                if (mounted) {
+                    setCoupons(normalizedCoupons);
+                }
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+                if (mounted) {
+                    setCouponsError(
+                        error?.response?.data?.detail
+                        || t("profile.coupons.error", { defaultValue: "Unable to load your coupons right now." })
+                    );
+                }
+            } finally {
+                if (mounted) {
+                    setCouponsLoading(false);
+                }
+            }
+        };
+
+        void loadCoupons();
+
+        return () => {
+            mounted = false;
+            if (copiedCouponResetRef.current) {
+                window.clearTimeout(copiedCouponResetRef.current);
+            }
+        };
+    }, [t]);
+
+    const handleCopyCouponCode = async (code: string) => {
+        try {
+            await navigator.clipboard.writeText(code);
+            setCopiedCouponCode(code);
+            toast.show(t("profile.coupons.copied", { defaultValue: "Coupon code copied!" }), "success");
+
+            if (copiedCouponResetRef.current) {
+                window.clearTimeout(copiedCouponResetRef.current);
+            }
+
+            copiedCouponResetRef.current = window.setTimeout(() => {
+                setCopiedCouponCode(null);
+            }, 2500);
+        } catch {
+            toast.show(t("profile.coupons.error", { defaultValue: "Unable to load your coupons right now." }), "error");
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+        >
+            <div className="mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest mb-3">
+                    <Tag size={12} />
+                    {t("profile.coupons.available", { defaultValue: "Available coupon" })}
+                </div>
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                    {t("profile.coupons.title", { defaultValue: "Available Coupons" })}
+                </h2>
+                <p className="text-xs md:text-sm text-slate-500 mt-2 max-w-2xl leading-relaxed">
+                    {t("profile.coupons.subtitle", { defaultValue: "Your active discounts and rewards at a glance." })}
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-5 md:mb-6">
                 {[
-                    { icon: <Users size={18} />, label: "Friends Invited", value: "—", bg: "bg-cyan-50", color: "text-cyan-600" },
-                    { icon: <ShoppingBag size={18} />, label: "Successful", value: "—", bg: "bg-emerald-50", color: "text-emerald-600" },
-                    { icon: <Percent size={18} />, label: "Coupons Earned", value: "—", bg: "bg-amber-50", color: "text-amber-600" },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-slate-50 border border-slate-100 rounded-2xl p-3 md:p-4 text-center">
-                        <div className={`w-9 h-9 ${stat.bg} rounded-xl flex items-center justify-center mx-auto mb-2 ${stat.color}`}>
+                    { label: t("profile.coupons.stats.available", { defaultValue: "Available" }), value: coupons.filter((coupon) => coupon.statusKey === "active").length, icon: <Tag size={16} />, bg: "bg-amber-50", color: "text-amber-600" },
+                    { label: t("profile.coupons.stats.referral", { defaultValue: "Referral" }), value: coupons.filter((coupon) => coupon.typeKey === "referral").length, icon: <Gift size={16} />, bg: "bg-cyan-50", color: "text-cyan-600" },
+                    { label: t("profile.coupons.stats.firstOrder", { defaultValue: "First Order" }), value: coupons.filter((coupon) => coupon.typeKey === "firstOrder").length, icon: <Percent size={16} />, bg: "bg-emerald-50", color: "text-emerald-600" },
+                ].map((stat) => (
+                    <div key={stat.label} className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center shrink-0`}>
                             {stat.icon}
                         </div>
-                        <div className="text-lg md:text-xl font-black text-slate-900">{stat.value}</div>
-                        <div className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{stat.label}</div>
+                        <div>
+                            <div className="text-lg font-black text-slate-900">{stat.value}</div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{stat.label}</div>
+                        </div>
                     </div>
                 ))}
             </div>
 
-            {/* ── Terms & Conditions ── */}
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 md:p-5">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <AlertCircle size={14} className="text-slate-400" />
-                    Terms and Conditions
-                </h4>
-                <ol className="list-decimal list-inside text-[10px] md:text-[11px] text-slate-500 space-y-1.5 leading-relaxed">
-                    <li>Your 20% Discount Coupon is valid for <strong className="text-slate-600">3 months</strong> from the date of issue and can be used only once.</li>
-                    <li>Maximum discount that can be availed is <strong className="text-slate-600">AED 20</strong>.</li>
-                    <li>This offer is <strong className="text-slate-600">ONLY valid in UAE</strong>.</li>
-                    <li>This offer is <strong className="text-slate-600">not transferable</strong>.</li>
-                    <li>Simak Fresh reserves the right to modify or terminate this program at any time.</li>
-                    <li>The referral code must be applied at checkout during the friend's <strong className="text-slate-600">first purchase</strong>.</li>
-                </ol>
-            </div>
+            {couponsLoading ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {[1, 2].map((i) => (
+                        <div key={i} className="rounded-2xl border border-slate-100 bg-white p-4 md:p-5 animate-pulse">
+                            <div className="h-5 w-28 bg-slate-100 rounded-full mb-4" />
+                            <div className="h-10 w-full bg-slate-100 rounded-xl mb-3" />
+                            <div className="h-3 w-3/4 bg-slate-100 rounded-full mb-2" />
+                            <div className="h-3 w-1/2 bg-slate-100 rounded-full mb-4" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="h-16 bg-slate-100 rounded-xl" />
+                                <div className="h-16 bg-slate-100 rounded-xl" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : couponsError ? (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/70 px-4 py-4 text-sm text-rose-600 font-medium">
+                    {couponsError}
+                </div>
+            ) : coupons.length === 0 ? (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center mx-auto mb-4 text-amber-500 shadow-sm border border-slate-100">
+                        <Tag size={22} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-900">{t("profile.coupons.empty", { defaultValue: "No coupons are available right now." })}</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        {t("profile.coupons.emptyHint", { defaultValue: "Earn one through referrals or check back after a new campaign goes live." })}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {coupons.map((coupon) => (
+                        <div key={coupon.id} className="rounded-2xl border border-slate-100 bg-white p-4 md:p-5 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                        <Tag size={18} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{coupon.typeLabel}</div>
+                                        <h4 className="text-sm md:text-base font-bold text-slate-900 truncate">{coupon.title}</h4>
+                                    </div>
+                                </div>
+                                <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${coupon.statusClassName}`}>
+                                    {coupon.statusLabel}
+                                </span>
+                            </div>
+
+                            <div className="mt-4 flex items-center gap-3">
+                                <div className="flex-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 font-mono text-base md:text-lg font-black tracking-[0.2em] text-slate-900 truncate">
+                                    {coupon.code}
+                                </div>
+                                <button
+                                    onClick={() => handleCopyCouponCode(coupon.code)}
+                                    className={`px-3 py-3 rounded-xl transition-all ${copiedCouponCode === coupon.code ? "bg-emerald-500 text-white" : "bg-slate-900 text-white hover:bg-slate-800"}`}
+                                    title={t("profile.coupons.copied", { defaultValue: "Coupon code copied!" })}
+                                >
+                                    {copiedCouponCode === coupon.code ? <CheckCircle size={16} /> : <Copy size={16} />}
+                                </button>
+                            </div>
+
+                            <p className="mt-3 text-xs md:text-sm text-slate-500 leading-relaxed">
+                                {coupon.description}
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-3">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("profile.coupons.discount", { defaultValue: "Discount" })}</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900">{coupon.badge || "—"}</div>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-3">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("profile.coupons.validUntil", { defaultValue: "Valid until" })}</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900">{coupon.validUntil}</div>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-3">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("profile.coupons.usage", { defaultValue: "Usage" })}</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900">{coupon.usage}</div>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-3">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("profile.coupons.status", { defaultValue: "Status" })}</div>
+                                    <div className="mt-1 text-sm font-bold text-slate-900">{coupon.statusLabel}</div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </motion.div>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
     Tag,
     Copy,
@@ -100,7 +101,7 @@ const OffersSection: React.FC = () => {
             {/* Decorative */}
             <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-50/50 rounded-full blur-3xl" />
 
-            <div className="relative mx-auto max-w-7xl">
+            <div className="relative mx-auto  ">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-cyan-50 border border-cyan-100 rounded-full mb-4">
@@ -350,22 +351,22 @@ const BannerCTA: React.FC<{ bannerOffer: any }> = ({ bannerOffer }) => {
             <div className="relative flex flex-col sm:flex-row items-center justify-between p-8 sm:p-12 gap-6 z-10 text-center sm:text-left">
                 <div>
                     <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
-                        <img 
-                            src={simakLogo} 
-                            alt="SIMAK LOGO" 
-                            className="h-8 sm:h-10 w-auto object-contain brightness-0 invert" 
+                        <img
+                            src={simakLogo}
+                            alt="SIMAK LOGO"
+                            className="h-8 sm:h-10 w-auto object-contain brightness-0 invert"
                         />
                         {bannerOffer.title}
                     </h3>
                     <p className="text-sm text-zinc-400">{bannerOffer.subtitle}</p>
                 </div>
-                <button
-                    onClick={() => bannerOffer.cta_link && (window.location.href = bannerOffer.cta_link)}
+                <Link
+                    to={bannerOffer.cta_link || "/products"}
                     className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-cyan-900 rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl hover:bg-zinc-50 transition-all duration-300 active:scale-[0.98] shrink-0 w-full sm:w-auto"
                 >
                     {bannerOffer.cta}
                     <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                </button>
+                </Link>
             </div>
         </div>
     );

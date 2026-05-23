@@ -27,7 +27,7 @@ import {
 
 import ScannerModal from './ScannerModal';
 import AdminNotificationsDropdown from '../../../features/admin/notifications/AdminNotificationsDropdown';
-import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
+import simakLogo from '../../../assets/LOGO-1.svg';
 
 
 interface NavItem {
@@ -110,7 +110,7 @@ const AdminLayout: React.FC = () => {
       >
         <div className="h-20 flex items-center justify-between px-6">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-white flex items-center justify-center rounded overflow-hidden">
+            <div className="w-8 h-8 bg-[#FAFAFA] flex items-center justify-center rounded overflow-hidden">
               <img
                 src={simakLogo}
                 alt={t('brand.name')}
@@ -209,8 +209,8 @@ const AdminLayout: React.FC = () => {
         </header>
 
         {/* --- VIEWPORT --- */}
-        <main className="flex-1 overflow-y-auto bg-white pt-4 px-4 pb-12 md:px-8 lg:px-10">
-          <div className="max-w-full lg:max-w-[1400px] mx-auto">
+        <main className="flex-1 overflow-y-auto bg-white pt-4 px-4 pb-12">
+          <div className="w-auto mx-auto">
             <Outlet />
           </div>
         </main>

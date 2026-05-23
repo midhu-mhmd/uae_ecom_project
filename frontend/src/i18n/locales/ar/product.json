@@ -7,6 +7,7 @@
     "new": "جديد",
     "view": "عرض",
     "buyNow": "اشتري الآن",
+    "notifyMe": "نبّهني",
     "categoryFallback": "مأكولات بحرية",
     "descriptionFallback": "طازج وبجودة ممتازة.",
     "onlyLeft": "{{count}} فقط متبقية",
@@ -14,6 +15,7 @@
     "inStock": "{{count}} في المخزون"
   },
   "list": {
+    "all": "جميع العناصر",
     "searchPlaceholder": "ابحث عن مأكولات بحرية...",
     "errorLoading": "فشل تحميل المنتجات. يرجى المحاولة مرة أخرى.",
     "tryAgain": "إعادة المحاولة",
@@ -21,6 +23,12 @@
     "noProductsDescription": "لم نتمكن من العثور على أي نتائج لـ \"{{searchTerm}}\". جرب كلمة بحث أخرى.",
     "clearSearch": "مسح البحث",
     "showingResults": "عرض {{start}}–{{end}} من أصل {{total}} من النتائج"
+  },
+  "filters": {
+    "freshFish": "أسماك طازجة",
+    "frozenFish": "أسماك مجمدة",
+    "liveFish": "أسماك حية",
+    "lightFish": "أسماك خفيفة"
   },
   "details": {
     "back": "رجوع",
@@ -30,6 +38,7 @@
     "outOfStock": "غير متوفر",
     "addToCart": "أضف إلى السلة",
     "buyNow": "اشترِ الآن",
+    "notifyMe": "نبّهني",
     "addWishlist": "أضف إلى المفضلة",
     "removeWishlist": "إزالة من المفضلة",
     "off": "خصم {{value}}٪",
@@ -51,6 +60,8 @@
     },
     "inStockItem": "{{count}} عنصر في المخزون",
     "inStockItems": "{{count}} عناصر في المخزون",
+    "restockSubscribed": "سنخبرك عندما يعود {{name}} إلى المخزون.",
+    "restockBackInStock": "عاد {{name}} إلى المخزون الآن.",
     "bulkOrder": {
       "title": "طلبيات الجملة",
       "subtitle": "وفر أكثر مع أسعار الجملة",
@@ -67,6 +78,19 @@
         "title": "نضارة مضمونة",
         "subtitle": "جودة معتمدة"
       }
+    },
+    "availableIn": {
+      "title": "متوفر في",
+      "subtitle": "يمكن توصيل هذا المنتج في الإمارات التالية."
+    },
+    "emirates": {
+      "Abu Dhabi": "أبو ظبي",
+      "Dubai": "دبي",
+      "Sharjah": "الشارقة",
+      "Ajman": "عجمان",
+      "Umm Al Quwain": "أم القيوين",
+      "Ras Al Khaimah": "رأس الخيمة",
+      "Fujairah": "الفجيرة"
     }
   },
   "units": {

@@ -11,11 +11,10 @@ import {
     ArrowRight,
     CreditCard,
     Smartphone,
-    Banknote,
     ShieldCheck,
 } from "lucide-react";
 
-
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import simakLogo from "../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png";
 
@@ -24,10 +23,51 @@ const Footer: React.FC = () => {
     const { t } = useTranslation("common");
     const year = new Date().getFullYear();
 
-    const shopLinks = t("footer.shopLinks", { returnObjects: true }) as { label: string }[];
     const companyLinks = t("footer.companyLinks", { returnObjects: true }) as { label: string }[];
     const supportLinks = t("footer.supportLinks", { returnObjects: true }) as { label: string }[];
     const legalLinks = t("footer.legalLinks", { returnObjects: true }) as { label: string }[];
+    const companyLinkPaths = [
+        "/about",       // About Us
+        "/",            // Our Story
+        "/",            // Freshness Promise
+        "/careers",     // Careers
+        "/",            // Blog
+        "/",            // Press
+    ];
+
+    const supportLinkPaths = [
+        "/support", // Help Center
+        "/orders",  // Track Order
+        "/support", // Contact Us
+        null,        // FAQs
+    ];
+    const legalLinkPaths = [
+        "/privacy-policy",
+        "/terms-of-service",
+    ];
+
+    const footerCategories = [
+        {
+            slug: "fresh-fish",
+            label: t("footer.categoryLabels.freshFish", "Fresh Fish"),
+        },
+        {
+            slug: "frozen-fish",
+            label: t("footer.categoryLabels.frozenFish", "Frozen Fish"),
+        },
+        {
+            slug: "live-fish",
+            label: t("footer.categoryLabels.liveFish", "Live Fish"),
+        },
+        {
+            slug: "light-fish",
+            label: t("footer.categoryLabels.lightFish", "Light Fish"),
+        },
+    ];
+
+    const getCategoryPath = (slug: string) => {
+        return `/products?category_slug=${encodeURIComponent(slug)}`;
+    };
 
     const socials = [
         { icon: <Instagram size={18} />, href: "#", label: "Instagram" },
@@ -40,7 +80,7 @@ const Footer: React.FC = () => {
         <footer className="bg-cyan-950 text-cyan-200/80">
             {/* Newsletter Banner */}
             <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-6">
-                <div className="mx-auto max-w-7xl">
+                <div className="mx-auto  ">
                     <div className="bg-cyan-900 border border-cyan-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
 
                         <div>
@@ -68,7 +108,7 @@ const Footer: React.FC = () => {
 
             {/* Main Footer Grid */}
             <div className="px-4 sm:px-6 lg:px-8 pb-6">
-                <div className="mx-auto max-w-7xl">
+                <div className="mx-auto  ">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
                         {/* Brand Column */}
                         <div className="col-span-2 sm:col-span-3 lg:col-span-1">
@@ -90,13 +130,13 @@ const Footer: React.FC = () => {
 
                             {/* Contact */}
                             <div className="space-y-2.5 mb-6">
-                                <a href="tel:+919876543210" className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
+                                <a href="tel:+971545446111" className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <Phone size={13} className="text-cyan-300" />
-                                    +91 98765 43210
+                                    +971 545 446 111
                                 </a>
-                                <a href="mailto:hello@simakfresh.ae" className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
+                                <a href="mailto:support@simakfresh.ae" className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <Mail size={13} className="text-cyan-300" />
-                                    hello@simakfresh.ae
+                                    support@simakfresh.ae
                                 </a>
                                 <div className="flex items-center gap-2.5 text-xs hover:text-yellow-400 transition-colors">
                                     <MapPin size={13} className="text-cyan-300 shrink-0" />
@@ -129,11 +169,14 @@ const Footer: React.FC = () => {
                                 {t("footer.shop")}
                             </h4>
                             <ul className="space-y-2.5">
-                                {Array.isArray(shopLinks) && shopLinks.map((link, idx) => (
-                                    <li key={idx}>
-                                        <a href="/" className="text-xs hover:text-yellow-400 transition-colors">
-                                            {link.label}
-                                        </a>
+                                {footerCategories.map((category) => (
+                                    <li key={category.slug}>
+                                        <Link
+                                            to={getCategoryPath(category.slug)}
+                                            className="text-xs hover:text-yellow-400 transition-colors"
+                                        >
+                                            {category.label}
+                                        </Link>
                                     </li>
                                 ))}
                             </ul>
@@ -145,13 +188,28 @@ const Footer: React.FC = () => {
                                 {t("footer.company")}
                             </h4>
                             <ul className="space-y-2.5">
-                                {Array.isArray(companyLinks) && companyLinks.map((link, idx) => (
-                                    <li key={idx}>
-                                        <a href="/" className="text-xs hover:text-yellow-400 transition-colors">
-                                            {link.label}
-                                        </a>
-                                    </li>
-                                ))}
+                                {Array.isArray(companyLinks) && companyLinks.map((link, idx) => {
+                                    if (idx === 2) return null;
+
+                                    const isStaticLabel = idx === 1 || idx === 4 || idx === 5;
+
+                                    return (
+                                        <li key={idx}>
+                                            {isStaticLabel ? (
+                                                <span className="text-xs text-cyan-200/80">
+                                                    {link.label}
+                                                </span>
+                                            ) : (
+                                                <Link
+                                                    to={companyLinkPaths[idx] || "/"}
+                                                    className="text-xs hover:text-yellow-400 transition-colors"
+                                                >
+                                                    {link.label}
+                                                </Link>
+                                            )}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         </div>
 
@@ -163,9 +221,18 @@ const Footer: React.FC = () => {
                             <ul className="space-y-2.5">
                                 {Array.isArray(supportLinks) && supportLinks.map((link, idx) => (
                                     <li key={idx}>
-                                        <a href="/" className="text-xs hover:text-yellow-400 transition-colors">
-                                            {link.label}
-                                        </a>
+                                        {supportLinkPaths[idx] ? (
+                                            <Link
+                                                to={supportLinkPaths[idx]}
+                                                className="text-xs hover:text-yellow-400 transition-colors"
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        ) : (
+                                            <span className="text-xs text-cyan-200/80">
+                                                {link.label}
+                                            </span>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -199,8 +266,6 @@ const Footer: React.FC = () => {
                             <div className="flex flex-wrap gap-2">
                                 {[
                                     { icon: <CreditCard size={14} />, label: t("footer.paymentMethods.cards") },
-                                    { icon: <Smartphone size={14} />, label: t("footer.paymentMethods.upi") },
-                                    { icon: <Banknote size={14} />, label: t("footer.paymentMethods.cod") },
                                 ].map((pm) => (
                                     <div
                                         key={pm.label}
@@ -218,7 +283,7 @@ const Footer: React.FC = () => {
 
             {/* Bottom Bar */}
             <div className="border-t border-cyan-900">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="mx-auto   px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-cyan-200/60">
                         <ShieldCheck size={14} className="text-yellow-500" />
                         <span>{t("footer.secure")}</span>
@@ -230,13 +295,19 @@ const Footer: React.FC = () => {
 
                     <div className="flex items-center gap-4">
                         {Array.isArray(legalLinks) && legalLinks.map((link, idx) => (
-                            <a
-                                key={idx}
-                                href="/"
-                                className="text-[10px] text-cyan-200/60 hover:text-yellow-400 transition-colors"
-                            >
-                                {link.label}
-                            </a>
+                            legalLinkPaths[idx] ? (
+                                <Link
+                                    key={idx}
+                                    to={legalLinkPaths[idx] as string}
+                                    className="text-[10px] text-cyan-200/60 hover:text-yellow-400 transition-colors"
+                                >
+                                    {link.label}
+                                </Link>
+                            ) : (
+                                <span key={idx} className="text-[10px] text-cyan-200/60">
+                                    {link.label}
+                                </span>
+                            )
                         ))}
                     </div>
                 </div>

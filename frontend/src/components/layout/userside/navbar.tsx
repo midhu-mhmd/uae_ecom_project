@@ -19,11 +19,10 @@ import { logout } from '../../../features/auth/authSlice';
 import { selectCartItems } from '../../../features/admin/cart/cartSlice';
 import { useTranslation } from 'react-i18next';
 
-// ✅ your hook (user-side language + rtl)
 import useLanguageToggle from '../../../hooks/useLanguageToggle';
-
-// ✅ Logo
-import simakLogo from '../../../assets/SIMAK FRESH FINAL LOGO-01 (1).png';
+import { BRAND_COLORS } from '../../../constants/theme';
+import { BrandSignature } from '../../common/BrandSignature';
+import { BrandLogo } from '../../common/BrandLogo';
 
 const Navbar: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -55,11 +54,11 @@ const Navbar: React.FC = () => {
 
     return (
         <div
-            className="w-full font-sans text-slate-800 select-none sticky top-0 z-50"
+            className="w-full text-slate-800 select-none sticky top-0 z-50"
         >
             {/* ═══ 1  TOP UTILITY BAR ════════════════════════════ */}
             <div className="bg-cyan-950 text-cyan-50 text-[11px]">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                <div className="  mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-5">
                         <Link
                             to="/orders"
@@ -70,7 +69,7 @@ const Navbar: React.FC = () => {
                         </Link>
                         <span className="hidden md:flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
                             <Phone size={12} className="text-yellow-400" />
-                            +91 90470 11110
+                            +971 545 446 111
                         </span>
                     </div>
 
@@ -110,27 +109,31 @@ const Navbar: React.FC = () => {
                 className={`bg-white border-b border-slate-100 transition-shadow duration-300 ${isScrolled ? 'shadow-md' : ''
                     }`}
             >
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
-                    {/* Logo */}
+                <div className="  mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
                     <Link to="/" className="shrink-0 flex items-center gap-2 group">
-                        <img
-                            src={simakLogo}
-                            alt={t('brand.name')}
-                            className="h-10 w-auto object-contain"
-                        />
+                        <BrandLogo size={40} />
                         <div className="flex flex-col justify-center items-center text-center">
-                            <span className="text-xl font-black tracking-tight text-slate-900 uppercase leading-none">
+                            <span 
+                                className="text-[18px] sm:text-[20px] tracking-tighter uppercase leading-none"
+                                style={{ color: BRAND_COLORS.DARK_CYAN }}
+                            >
                                 {t('brand.name')}
                             </span>
-                            <span className="text-[8px] sm:text-[9.5px] font-bold tracking-[0.1em] text-cyan-800/80 uppercase mt-1 leading-none">
-                                {t('brand.signature')}
-                            </span>
+                            <div className="mt-1 whitespace-nowrap">
+                                <BrandSignature
+                                    language={currentLanguage}
+                                    signatureText={t('brand.signature')}
+                                    color={BRAND_COLORS.ACCENT_CYAN}
+                                    size="sm"
+                                    wow={false}
+                                />
+                            </div>
                         </div>
                     </Link>
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                        {/* Desktop Links */}
+                        {/* Desktop Shop Link */}
                         <Link
                             to="/products"
                             className="hidden md:block text-xs font-bold text-slate-700 hover:text-cyan-600 transition-colors px-2"
@@ -138,20 +141,11 @@ const Navbar: React.FC = () => {
                             {t('nav.shop')}
                         </Link>
 
-                        {/* ✅ Mobile 'All Products' Icon (Hidden on Desktop) */}
-                        <Link
-                            to="/products"
-                            className="md:hidden flex flex-col items-center justify-center w-10 h-10 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-cyan-600 transition-colors"
-                            aria-label={t('nav.allProducts')}
-                        >
-                            <Package size={20} />
-                        </Link>
-
-                        {/* ✅ Cart Icon - Hidden on Mobile, Visible on Desktop */}
+                        {/* ✅ Cart Icon - Visible on all screen sizes */}
                         {isAuthenticated ? (
                             <Link
                                 to="/cart"
-                                className="relative hidden md:flex flex-col items-center gap-0.5 min-w-14 py-1.5 rounded-xl hover:bg-stone-50 transition-colors group"
+                                className="relative flex flex-col items-center gap-0.5 min-w-14 py-1.5 rounded-xl hover:bg-stone-50 transition-colors group"
                             >
                                 <div className="relative flex justify-center w-full">
                                     <ShoppingCart size={18} className="text-stone-400 group-hover:text-cyan-600 transition-colors" />
@@ -306,7 +300,8 @@ const Navbar: React.FC = () => {
 
                                 {/* Navigation Links */}
                                 <div className="px-4 space-y-1">
-                                    {[...(isAuthenticated ? [{ key: 'cart', label: t('nav.myCart'), href: '/cart', icon: <ShoppingCart size={18} />, badge: cartItems.length }] : [])
+                                    {[{ key: 'shop', label: t('nav.shop'), href: '/products', icon: <Package size={18} /> },
+                                    ...(isAuthenticated ? [{ key: 'cart', label: t('nav.myCart'), href: '/cart', icon: <ShoppingCart size={18} />, badge: cartItems.length }] : [])
                                     ].map((link) => (
                                         <Link
                                             key={link.key}

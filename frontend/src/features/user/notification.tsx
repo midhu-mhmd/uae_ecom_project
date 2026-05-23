@@ -22,7 +22,7 @@ interface Notification {
 
 /* ── API helpers ── */
 const notificationsApi = {
-    list: async (opts?: { limit?: number; offset?: number; is_read?: boolean | null }): Promise<{ results: Notification[]; next?: string | null; count?: number }> => {
+    list: async (opts?: { limit?: number; offset?: number; is_read?: boolean | null }): Promise<{ results: Notification[]; next?: string | null; count?: number; total?: number; read?: number; unread?: number }> => {
         const params: Record<string, any> = {};
         if (opts?.limit != null) params.limit = opts.limit;
         if (opts?.offset != null) params.offset = opts.offset;
@@ -32,7 +32,10 @@ const notificationsApi = {
         const results = Array.isArray(data) ? data : (data.results || []);
         const next = Array.isArray(data) ? null : (data.next || null);
         const count = Array.isArray(data) ? results.length : (data.count ?? results.length);
-        return { results, next, count };
+        const total = Array.isArray(data) ? results.length : (data.total ?? count);
+        const read = Array.isArray(data) ? results.filter((n: any) => n.is_read ?? n.read).length : (data.read ?? undefined);
+        const unread = Array.isArray(data) ? results.filter((n: any) => !(n.is_read ?? n.read)).length : (data.unread ?? undefined);
+        return { results, next, count, total, read, unread };
     },
 
     markAsRead: async (id: number) => {
@@ -44,10 +47,14 @@ const notificationsApi = {
         const res = await api.post('/notifications/mark_all_as_read/');
         return res.data;
     },
+
+    deleteNotification: async (id: number) => {
+        await api.delete(`/notifications/${id}/`);
+    },
 };
 
 /* ── Helper: format date for display ── */
-function formatDate(dateStr?: string): string {
+function formatRelativeTime(dateStr: string | undefined, t: any, lang: string): string {
     if (!dateStr) return '';
     const date = new Date(dateStr);
     const now = new Date();
@@ -56,17 +63,19 @@ function formatDate(dateStr?: string): string {
     const diffHr = Math.floor(diffMs / 3600000);
     const diffDay = Math.floor(diffMs / 86400000);
 
-    if (diffMin < 1) return 'Just now';
-    if (diffMin < 60) return `${diffMin} min ago`;
-    if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? 's' : ''} ago`;
-    if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString('en-AE', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (diffMin < 1) return t('notifications.justNow');
+    if (diffMin < 60) return t('notifications.minAgo', { count: diffMin });
+    if (diffHr < 24) return t('notifications.hourAgo', { count: diffHr });
+    if (diffDay < 7) return t('notifications.dayAgo', { count: diffDay });
+
+    const locale = lang === 'ar' ? 'ar-AE' : lang === 'cn' ? 'zh-CN' : 'en-AE';
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 const NotificationPage: React.FC = () => {
     const navigate = useNavigate();
     const { isArabic } = useLanguageToggle();
-    const { t } = useTranslation('common');
+    const { t, i18n } = useTranslation('common');
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [markingAll, setMarkingAll] = useState(false);
@@ -75,18 +84,22 @@ const NotificationPage: React.FC = () => {
     const [hasMore, setHasMore] = useState<boolean>(true);
     const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
     const loadMoreRef = React.useRef<HTMLDivElement>(null);
+    const [serverCounts, setServerCounts] = useState<{ total: number; read: number; unread: number } | null>(null);
 
     // Fetch notifications
     const fetchNotifications = useCallback(async (reset: boolean = false) => {
         try {
             const is_read = filter === 'unread' ? false : filter === 'read' ? true : null;
             const pageOffset = reset ? 0 : notifications.length;
-            const { results, next } = await notificationsApi.list({ limit, offset: pageOffset, is_read });
+            const { results, next, total, read, unread } = await notificationsApi.list({ limit, offset: pageOffset, is_read });
+            if (reset && total != null && read != null && unread != null) {
+                setServerCounts({ total, read, unread });
+            }
             const mapped = results.map((n: any) => ({
                 ...n,
                 type: n.type || 'system',
                 read: n.read ?? n.is_read ?? false,
-                date: n.date || formatDate(n.created_at),
+                date: n.date || formatRelativeTime(n.created_at, t, i18n.language),
                 action_url: n.action_url || null,
             }));
             if (reset) setNotifications(mapped);
@@ -121,9 +134,13 @@ const NotificationPage: React.FC = () => {
 
     // Mark single as read
     const markAsRead = async (id: number) => {
+        const notification = notifications.find(n => n.id === id);
+        if (!notification || notification.read) return;
+
         try {
             await notificationsApi.markAsRead(id);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+            setServerCounts(prev => prev ? { ...prev, read: prev.read + 1, unread: Math.max(0, prev.unread - 1) } : null);
         } catch {
             // ignore
         }
@@ -135,6 +152,7 @@ const NotificationPage: React.FC = () => {
         try {
             await notificationsApi.markAllAsRead();
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setServerCounts(prev => prev ? { ...prev, read: prev.total, unread: 0 } : null);
         } catch {
             // ignore
         } finally {
@@ -142,9 +160,25 @@ const NotificationPage: React.FC = () => {
         }
     };
 
-    // Local-only remove (keeps UI responsive)
-    const deleteNotification = (id: number) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
+    const deleteNotification = async (id: number) => {
+        const notification = notifications.find(n => n.id === id);
+        try {
+            await notificationsApi.deleteNotification(id);
+            setNotifications(prev => prev.filter(n => n.id !== id));
+            if (notification) {
+                setServerCounts(prev => {
+                    if (!prev) return null;
+                    const wasUnread = !notification.read;
+                    return {
+                        total: Math.max(0, prev.total - 1),
+                        read: wasUnread ? prev.read : Math.max(0, prev.read - 1),
+                        unread: wasUnread ? Math.max(0, prev.unread - 1) : prev.unread,
+                    };
+                });
+            }
+        } catch {
+            // leave notification visible if delete failed
+        }
     };
 
     const getIcon = (type: NotificationType) => {
@@ -156,9 +190,10 @@ const NotificationPage: React.FC = () => {
         }
     };
 
-    const hasUnread = notifications.some(n => !n.read);
-    const unreadCount = notifications.filter(n => !n.read).length;
-    const readCount = notifications.filter(n => n.read).length;
+    const hasUnread = (serverCounts?.unread ?? notifications.filter(n => !n.read).length) > 0;
+    const unreadCount = serverCounts?.unread ?? notifications.filter(n => !n.read).length;
+    const readCount = serverCounts?.read ?? notifications.filter(n => n.read).length;
+    const totalCount = serverCounts?.total ?? notifications.length;
     const filtered = useMemo(() => {
         if (filter === 'unread') return notifications.filter(n => !n.read);
         if (filter === 'read') return notifications.filter(n => n.read);
@@ -201,7 +236,7 @@ const NotificationPage: React.FC = () => {
                             title={t('notifications.showAll', 'Show all notifications')}
                         >
                             <Bell size={14} /> {t('notifications.all', 'All')}
-                            <span className={`${isArabic ? 'mr-1' : 'ml-1'} inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-md text-[10px] font-black bg-white border border-slate-200 text-slate-700`}>{notifications.length}</span>
+                            <span className={`${isArabic ? 'mr-1' : 'ml-1'} inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-md text-[10px] font-black bg-white border border-slate-200 text-slate-700`}>{totalCount}</span>
                         </button>
                         <button
                             onClick={() => setFilter('unread')}
@@ -244,8 +279,9 @@ const NotificationPage: React.FC = () => {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, x: -100 }}
+                                    onClick={() => !notification.read && markAsRead(notification.id)}
                                     className={`relative bg-white rounded-2xl p-5 border transition-all hover:shadow-md group ${
-                                        notification.read ? 'border-slate-100' : 'border-rose-100 bg-rose-50/10'
+                                        notification.read ? 'border-slate-100' : 'border-rose-100 bg-rose-50/10 cursor-pointer'
                                     }`}
                                 >
                                     <div className="flex gap-4">
@@ -270,27 +306,32 @@ const NotificationPage: React.FC = () => {
                                     </div>
 
                                     {/* ✅ Actions (Absolute corner to preserve card height) */}
-                                    <div className={`absolute bottom-4 ${isArabic ? 'left-4' : 'right-4'} flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300`}>
+                                    <div className={`absolute bottom-4 ${isArabic ? 'left-4' : 'right-4'} flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300`}>
                                         {notification.action_url && (
                                             <button
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     const url = String(notification.action_url || '').trim();
                                                     if (!url) return;
+                                                    if (!notification.read) markAsRead(notification.id);
                                                     if (/^https?:\/\//i.test(url)) {
                                                         window.location.href = url;
                                                     } else if (url.startsWith('/')) {
                                                         navigate(url);
                                                     }
                                                 }}
-                                                className="p-1.5 bg-white text-violet-600 rounded-lg shadow-sm border border-slate-100 hover:bg-violet-50 transition-colors"
-                                                title="Open"
+                                                className="px-3 py-1.5 bg-white text-violet-600 rounded-lg shadow-sm border border-slate-100 hover:bg-violet-50 transition-colors text-[10px] font-bold"
+                                                title={t('notifications.open')}
                                             >
-                                                Open
+                                                {t('notifications.open')}
                                             </button>
                                         )}
                                         {!notification.read && (
                                             <button
-                                                onClick={() => markAsRead(notification.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    markAsRead(notification.id);
+                                                }}
                                                 className="p-1.5 bg-white text-emerald-600 rounded-lg shadow-sm border border-slate-100 hover:bg-emerald-50 transition-colors"
                                                 title={t('notifications.markRead', 'Mark as Read')}
                                             >
@@ -298,7 +339,10 @@ const NotificationPage: React.FC = () => {
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => deleteNotification(notification.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteNotification(notification.id);
+                                            }}
                                             className="p-1.5 bg-white text-slate-400 rounded-lg shadow-sm border border-slate-100 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                                             title={t('notifications.delete', 'Delete')}
                                         >

@@ -23,6 +23,7 @@ export interface DiscountTierDto {
   product?: number;
   min_quantity: number;
   discount_percentage: string;
+  discount_price?: string;
 }
 
 /* ── Delivery Tier DTO ── */
@@ -31,6 +32,9 @@ export interface DeliveryTierDto {
   product?: number;
   min_quantity: number;
   delivery_days: number;
+  name?: string;
+  cost?: string;
+  estimated_days?: string;
 }
 
 /* ── Product DTO returned by backend ── */
@@ -67,6 +71,7 @@ export type ProductsQuery = {
   search?: string;
   category?: string;
   category_slug?: string;
+  category_name?: string;
   min_price?: number;
   max_price?: number;
   is_available?: boolean;
@@ -114,6 +119,10 @@ export const productsApi = {
   related: async (id: number): Promise<ProductDto[]> => {
     const res = await api.get<ProductDto[]>(`/products/products/${id}/related/`);
     return res.data;
+  },
+
+  notifyStock: async (id: number): Promise<void> => {
+    await api.post(`/products/products/${id}/notify_stock/`);
   },
 
   create: async (payload: Partial<ProductDto> | FormData): Promise<ProductDto> => {

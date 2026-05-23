@@ -76,13 +76,13 @@
       "placeholder": "Enter your email",
       "subscribe": "Subscribe"
     },
-    "brandDescription": "India's freshest seafood, delivered to your doorstep. From harbour to home in hours — cleaned, packed & ready to cook.",
-    "location": "Kerala, India",
+    "brandDescription": "Since 2016, SIMAK FRESH has grown from Dubai roots into a trusted seafood partner across import, export, farming, retail, and wholesale.",
+    "location": "Sharjah Media City, Sharjah, UAE",
     "timing": "6 AM – 9 PM, Mon–Sun",
     "shop": "Shop",
     "company": "Company",
     "support": "Support",
-    "secure": "FSSAI Licensed • 100% Secure Payments",
+    "secure": "100% Secure Payments",
     "rights": "All rights reserved.",
     "shopLinks": [
       {
@@ -135,12 +135,6 @@
         "label": "Track Order"
       },
       {
-        "label": "Shipping Info"
-      },
-      {
-        "label": "Returns & Refunds"
-      },
-      {
         "label": "Contact Us"
       },
       {
@@ -153,14 +147,14 @@
       },
       {
         "label": "Terms of Service"
-      },
-      {
-        "label": "Refund Policy"
-      },
-      {
-        "label": "Cookie Policy"
       }
     ],
+    "categoryLabels": {
+      "freshFish": "Fresh Fish",
+      "frozenFish": "Frozen Fish",
+      "liveFish": "Live Fish",
+      "lightFish": "Light Fish"
+    },
     "download": "Download App",
     "getItOn": "Get it on",
     "downloadOn": "Download on",
@@ -170,6 +164,55 @@
       "upi": "UPI",
       "cod": "COD"
     }
+  },
+  "about": {
+    "title": "About Us",
+    "heading": "From Dubai roots to global seafood expertise",
+    "intro": "Since 2016, we have established a strong presence in the seafood industry, operating across import, export, farming, retail, and wholesale. Having begun our journey in the Dubai market, we are now expanding into new horizons with SIMAK FRESH, bringing our expertise and passion for quality to a global scale.",
+    "ourMissionTitle": "Our Mission",
+    "ourMissionText": "We deliver the freshest seafood with complete transparency, exceptional service, and a commitment to sustainability. Every product is carefully sourced, expertly handled, and delivered with the quality our customers expect.",
+    "ourMissionText2": "SIMAK FRESH is built on trust, reliability, and the belief that premium seafood should be available to families, restaurants, and retailers across the region and beyond.",
+    "whyChooseUsTitle": "Why Choose SIMAK FRESH",
+    "expertsInSeafood": "Seafood expertise across every sector",
+    "expertsInSeafoodText": "Import, export, farming, retail, and wholesale are all part of our integrated supply chain.",
+    "globalAmbition": "Built in Dubai, expanding globally",
+    "globalAmbitionText": "Starting in Dubai, we’re now taking our premium seafood capabilities to new markets with SIMAK FRESH.",
+    "qualityPromise": "Quality you can trust",
+    "qualityPromiseText": "From catch to kitchen, every order is cleaned, packed, and delivered with the freshness and care you deserve.",
+    "commitmentToService": "Commitment to exceptional service",
+    "commitmentToServiceText": "We make seafood shopping easy, reliable, and enjoyable for customers, partners, and businesses alike.",
+    "sectorsTitle": "Our Presence",
+    "sectors": {
+      "import": "Import",
+      "export": "Export",
+      "farming": "Farming",
+      "retail": "Retail",
+      "wholesale": "Wholesale"
+    },
+    "joinUsTitle": "Experience SIMAK FRESH",
+    "joinUsText": "Join us on our journey to redefine seafood freshness, quality, and trust across the world.",
+    "shopNow": "Shop Fresh Seafood"
+  },
+  "careers": {
+    "title": "Join Our Team",
+    "heading": "Build Your Future at SIMAK FRESH",
+    "intro": "We're looking for passionate, dedicated professionals to join our growing team. Whether you're in operations, logistics, customer service, or marketing, we offer an environment where your expertise helps deliver premium seafood to thousands of families and businesses across the region.",
+    "whyJoinTitle": "Why Join SIMAK FRESH",
+    "innovationTitle": "Innovation & Growth",
+    "innovationText": "Be part of a fast-growing company expanding across the region with cutting-edge logistics and customer service.",
+    "cultureTitle": "Inclusive Culture",
+    "cultureText": "We value diversity, respect, and collaboration. Your voice matters and your ideas shape our future.",
+    "teamTitle": "Strong Team",
+    "teamText": "Work alongside professionals who are passionate about quality, service excellence, and seafood expertise.",
+    "opportunityTitle": "Career Development",
+    "opportunityText": "Grow your skills and advance your career with competitive benefits and professional development opportunities.",
+    "applyTitle": "Ready to Apply?",
+    "applyText": "We'd love to hear from you! Send your CV and a brief message about yourself and why you'd like to join our team. Tell us what's unique about you and how you can contribute to SIMAK FRESH's mission of delivering quality seafood with excellence.",
+    "emailLabel": "Send Your Application To:",
+    "emailHint": "Include your CV, contact details, and a message about your experience and interest in joining SIMAK FRESH.",
+    "ctaTitle": "Let's Build Something Great",
+    "ctaText": "Join a team dedicated to bringing the world's freshest seafood to your doorstep.",
+    "learnMore": "Learn About Us"
   },
   "notifications": {
     "title": "Notifications",
@@ -187,7 +230,15 @@
     "emptyHintAll": "We'll let you know when something important happens.",
     "emptyHintOther": "Try switching filters or check back later.",
     "markRead": "Mark as Read",
-    "delete": "Delete"
+    "delete": "Delete",
+    "open": "Open",
+    "justNow": "Just now",
+    "minAgo": "{{count}} min ago",
+    "minAgo_plural": "{{count}} mins ago",
+    "hourAgo": "{{count}} hour ago",
+    "hourAgo_plural": "{{count}} hours ago",
+    "dayAgo": "{{count}} day ago",
+    "dayAgo_plural": "{{count}} days ago"
   },
   "wishlist": {
     "title": "My Wishlist",
@@ -233,7 +284,48 @@
       "requestError": "Request Error",
       "badRequest": "400 — Bad Request",
       "serverError": "500 — Server Error",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "genericFallback": "Something went wrong. Please try again."
+    }
+  },
+  "payment": {
+    "success": {
+      "badge": "Payment Confirmed",
+      "title": "Order Placed Successfully!",
+      "orderId": "Order #{{id}}",
+      "description": "Thank you for your order! Your payment has been processed successfully. We're preparing your fresh catch now.",
+      "stepConfirmed": "Confirmed",
+      "stepPreparing": "Preparing",
+      "stepDelivered": "Delivered",
+      "viewOrders": "View My Orders",
+      "backHome": "Back to Home",
+      "redirect": "Redirecting to your orders in {{count}}s..."
+    },
+    "failed": {
+      "badge": "Payment Failed",
+      "title": "Payment Unsuccessful",
+      "orderId": "Order #{{id}}",
+      "description": "We couldn't process your payment. No amount has been charged. Please try again or use a different payment method.",
+      "reasonsTitle": "Common reasons for failure:",
+      "reasons": [
+        "Insufficient balance in your account",
+        "Card expired or incorrect details entered",
+        "Transaction declined by your bank",
+        "Network interruption during payment"
+      ],
+      "retryFallback": "Failed to retry payment. Please try again.",
+      "processing": "Processing...",
+      "tryAgain": "Try Again",
+      "contactSupport": "Contact Support",
+      "backHome": "Back to Home"
+    },
+    "cancelled": {
+      "badge": "Order Pending",
+      "title": "Your Order Is Marked as Pending",
+      "orderId": "Order #{{id}}",
+      "description": "Your payment was cancelled but your order has been saved as pending. You can return to your order at any time to complete the payment.",
+      "returnToOrder": "Return to Order",
+      "backHome": "Back to Home"
     }
   },
   "profileModal": {

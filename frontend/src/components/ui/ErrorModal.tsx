@@ -22,8 +22,23 @@ export const useErrorModal = () => {
 };
 
 /* ── Helper: extract readable message from 400 response ── */
-function extractErrorMessage(data: any): string {
-    if (!data) return "Something went wrong. Please try again.";
+function extractErrorMessage(data: any, fallback: string): string {
+    if (!data) return fallback;
+    const asString =
+        typeof data === "string"
+            ? data
+            : typeof data.detail === "string"
+                ? data.detail
+                : typeof data.message === "string"
+                    ? data.message
+                    : typeof data.error === "string"
+                        ? data.error
+                        : "";
+
+    if (asString && /request was throttled|available in \d+ seconds?/i.test(asString)) {
+        return "You're doing that too often. Please wait a moment and try again.";
+    }
+
     if (typeof data === "string") return data;
     if (typeof data.detail === "string") return data.detail;
     if (typeof data.message === "string") return data.message;
@@ -43,7 +58,7 @@ function extractErrorMessage(data: any): string {
         if (messages.length) return messages.join("\n");
     }
 
-    return "Something went wrong. Please try again.";
+    return fallback;
 }
 
 /* ── Provider ── */
@@ -63,7 +78,7 @@ export const ErrorModalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent).detail;
-            const msg = extractErrorMessage(detail);
+            const msg = extractErrorMessage(detail, t("errors.modal.genericFallback"));
             showError(msg);
         };
         window.addEventListener("api-error-400", handler);

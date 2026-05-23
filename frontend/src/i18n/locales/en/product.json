@@ -7,6 +7,7 @@
     "new": "New",
     "view": "View",
     "buyNow": "Buy Now",
+    "notifyMe": "Notify Me",
     "categoryFallback": "Seafood",
     "descriptionFallback": "Fresh and premium quality.",
     "onlyLeft": "Only {{count}} left",
@@ -14,6 +15,7 @@
     "inStock": "{{count}} in stock"
   },
   "list": {
+    "all": "All Items",
     "searchPlaceholder": "Search seafood...",
     "errorLoading": "Failed to load products. Please try again.",
     "tryAgain": "Try Again",
@@ -21,6 +23,12 @@
     "noProductsDescription": "We couldn't find anything for \"{{searchTerm}}\". Try a different keyword.",
     "clearSearch": "Clear search",
     "showingResults": "Showing {{start}}–{{end}} of {{total}} results"
+  },
+  "filters": {
+    "freshFish": "Fresh Fish",
+    "frozenFish": "Frozen Fish",
+    "liveFish": "Live Fish",
+    "lightFish": "Light Fish"
   },
   "details": {
     "back": "Back",
@@ -30,6 +38,7 @@
     "outOfStock": "Out of Stock",
     "addToCart": "Add to Cart",
     "buyNow": "Buy Now",
+    "notifyMe": "Notify Me",
     "addWishlist": "Add to Wishlist",
     "removeWishlist": "Remove from Wishlist",
     "off": "{{value}}% OFF",
@@ -51,6 +60,8 @@
     },
     "inStockItem": "{{count}} item in stock",
     "inStockItems": "{{count}} items in stock",
+    "restockSubscribed": "We’ll notify you when {{name}} is back in stock.",
+    "restockBackInStock": "{{name}} is back in stock now.",
     "bulkOrder": {
       "title": "Bulk Order",
       "subtitle": "Save more with bulk pricing",
@@ -67,6 +78,19 @@
         "title": "Fresh Guaranteed",
         "subtitle": "Certified Quality"
       }
+    },
+    "availableIn": {
+      "title": "Available in",
+      "subtitle": "This product can be delivered in the following emirates."
+    },
+    "emirates": {
+      "Abu Dhabi": "Abu Dhabi",
+      "Dubai": "Dubai",
+      "Sharjah": "Sharjah",
+      "Ajman": "Ajman",
+      "Umm Al Quwain": "Umm Al Quwain",
+      "Ras Al Khaimah": "Ras Al Khaimah",
+      "Fujairah": "Fujairah"
     }
   },
   "units": {

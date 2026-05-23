@@ -1,18 +1,15 @@
+import { Loader } from "@googlemaps/js-api-loader";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MapPin, Navigation, Loader2 } from "lucide-react";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyCpMhqetQskMUsPFiHNNka6K1NsZutU8KM";
-
 const MAP_ID = "DEMO_MAP_ID";
 
-/* ── Global window extensions ── */
-declare global {
-  interface Window {
-    google: any;
-    __mapsApiLoaded?: boolean;
-    __mapsApiCallbacks?: Array<() => void>;
-  }
-}
+const loader = new Loader({
+  apiKey: GOOGLE_MAPS_API_KEY,
+  version: "weekly",
+  libraries: ["places", "marker", "geocoding"],
+});
 
 /* ── Public types ── */
 export interface MapPickerResult {
@@ -28,44 +25,6 @@ interface Props {
   onSelect: (result: MapPickerResult) => void;
   defaultLat?: number;
   defaultLng?: number;
-}
-
-/* ── Improved Maps loader ── */
-function loadMapsBootstrap(onReady: () => void) {
-
-  if (window.google?.maps?.importLibrary) {
-    onReady();
-    return;
-  }
-
-  if (!window.__mapsApiCallbacks) {
-    window.__mapsApiCallbacks = [];
-  }
-
-  window.__mapsApiCallbacks.push(onReady);
-
-  if (document.getElementById("google-maps-script")) return;
-
-  const script = document.createElement("script");
-
-  script.id = "google-maps-script";
-
-  script.src =
-    `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}` +
-    `&loading=async&libraries=places,marker,geocoding`;
-
-  script.async = true;
-  script.defer = true;
-
-  script.onload = () => {
-    window.__mapsApiLoaded = true;
-
-    window.__mapsApiCallbacks?.forEach((cb) => cb());
-
-    window.__mapsApiCallbacks = [];
-  };
-
-  document.head.appendChild(script);
 }
 
 /* ── Parse Geocoder address components ── */
@@ -92,9 +51,10 @@ function parseGeocoderComponents(components: any[]): Partial<MapPickerResult> {
 
 /* ── Parse Places API components ── */
 function parsePlaceComponents(components: any[]): Partial<MapPickerResult> {
-
-  const get = (type: string) =>
-    (components || []).find((c: any) => c.types?.includes(type))?.longText ?? "";
+  const get = (type: string) => {
+    const component = (components || []).find((c: any) => c.types?.includes(type));
+    return component?.long_name || component?.longText || "";
+  };
 
   return {
     street: [get("street_number"), get("route")].filter(Boolean).join(" ") || undefined,
@@ -119,11 +79,12 @@ export default function GoogleMapPicker({
 }: Props) {
 
   const mapDivRef = useRef<HTMLDivElement>(null);
-  const acContainerRef = useRef<HTMLDivElement>(null);
+  const acInputRef = useRef<HTMLInputElement>(null);
 
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const geocoderRef = useRef<any>(null);
+  const autocompleteRef = useRef<any>(null);
 
   const initializedRef = useRef(false);
 
@@ -189,13 +150,12 @@ export default function GoogleMapPicker({
         { Map },
         { AdvancedMarkerElement },
         { Geocoder },
-        { PlaceAutocompleteElement },
-      ] = await Promise.all([
+      ] = (await Promise.all([
         window.google.maps.importLibrary("maps"),
         window.google.maps.importLibrary("marker"),
         window.google.maps.importLibrary("geocoding"),
         window.google.maps.importLibrary("places"),
-      ]);
+      ])) as any[];
 
       const center = { lat: defaultLat, lng: defaultLng };
 
@@ -247,56 +207,35 @@ export default function GoogleMapPicker({
         reverseGeocode(lat, lng);
       });
 
-      if (acContainerRef.current) {
-
-        const placeAC = new PlaceAutocompleteElement({
-          componentRestrictions: {
-            country: ["ae", "in", "cn"],
-          },
+      if (acInputRef.current && window.google?.maps?.places) {
+        const autocomplete = new window.google.maps.places.Autocomplete(acInputRef.current, {
+          fields: ["geometry", "address_components", "formatted_address"],
+          componentRestrictions: { country: ["ae", "in", "cn"] },
         });
 
-        acContainerRef.current.innerHTML = "";
+        autocompleteRef.current = autocomplete;
 
-        acContainerRef.current.appendChild(placeAC);
+        autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          const location = place?.geometry?.location;
 
-        placeAC.addEventListener(
-          "gmp-placeselect",
-          async (e: any) => {
+          if (!location) return;
 
-            try {
+          const lat = location.lat();
+          const lng = location.lng();
 
-              const { place } = e;
+          marker.position = { lat, lng };
+          map.panTo({ lat, lng });
+          map.setZoom(15);
 
-              await place.fetchFields({
-                fields: [
-                  "location",
-                  "addressComponents",
-                  "formattedAddress",
-                ],
-              });
+          setAddress(place.formatted_address ?? "");
 
-              const lat = place.location?.lat();
-              const lng = place.location?.lng();
-
-              if (lat == null || lng == null) return;
-
-              marker.position = { lat, lng };
-
-              map.panTo({ lat, lng });
-
-              setAddress(place.formattedAddress ?? "");
-
-              onSelect({
-                lat,
-                lng,
-                ...parsePlaceComponents(
-                  place.addressComponents ?? []
-                ),
-              });
-
-            } catch {}
-          }
-        );
+          onSelect({
+            lat,
+            lng,
+            ...parsePlaceComponents(place.address_components ?? []),
+          });
+        });
       }
 
       setIsLoaded(true);
@@ -312,8 +251,22 @@ export default function GoogleMapPicker({
   }, [defaultLat, defaultLng, reverseGeocode, onSelect]);
 
   useEffect(() => {
-    loadMapsBootstrap(initMap);
+    loader.load().then(initMap).catch(e => console.error("loader.load error:", e));
   }, [initMap]);
+
+  // Handle container resizing (e.g. during animations)
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || !mapDivRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      if (window.google?.maps?.event && mapRef.current) {
+        window.google.maps.event.trigger(mapRef.current, "resize");
+      }
+    });
+
+    observer.observe(mapDivRef.current);
+    return () => observer.disconnect();
+  }, [isLoaded]);
 
   const handleUseLocation = () => {
 
@@ -362,10 +315,17 @@ export default function GoogleMapPicker({
             </div>
           )}
 
-          <div
-            ref={acContainerRef}
-            className={!isLoaded ? "hidden" : "w-full"}
-          />
+          <div className={!isLoaded ? "hidden" : "w-full"}>
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-cyan-500/20 focus-within:border-cyan-400 transition-all">
+              <MapPin size={14} className="text-slate-400 shrink-0" />
+              <input
+                ref={acInputRef}
+                type="text"
+                placeholder="Search location"
+                className="w-full bg-white text-slate-900 placeholder:text-slate-400 text-sm outline-none"
+              />
+            </div>
+          </div>
 
         </div>
 

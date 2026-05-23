@@ -2,9 +2,17 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks";
 import { useDeliveryEstimation } from "../../hooks/useDeliveryEstimation";
-import { selectCartItems, selectCartTotal, clearCart } from "../admin/cart/cartSlice";
-import { ordersApi, type CheckoutSummaryResponse, type DeliverySlotDto } from "../admin/orders/ordersApi";
+import {
+  selectCartItems,
+  selectInStockCartItems,
+  selectInStockCartTotal,
+  clearCart,
+  fetchCartRequest,
+  isCartItemInStock,
+} from "../admin/cart/cartSlice";
+import { ordersApi, type CheckoutSummaryResponse, type DeliveryChargeSettingsDto, type DeliverySlotDto } from "../admin/orders/ordersApi";
 import { customersApi, type AddressDto } from "../admin/customers/customersApi";
+import { cartsApi } from "../admin/cart/cartApi";
 import {
   MapPin, CreditCard, Truck, ArrowLeft, Loader2,
   Calendar, Clock, MessageSquare, Plus, Home, Briefcase, ChevronDown, Info, Check, Tag, X
@@ -30,13 +38,13 @@ const ADDRESS_TYPES = [
 ];
 
 const EMIRATES = [
-  { value: "abu_dhabi", key: "emirates.abu_dhabi" },
-  { value: "dubai", key: "emirates.dubai" },
-  { value: "sharjah", key: "emirates.sharjah" },
-  { value: "ajman", key: "emirates.ajman" },
-  { value: "umm_al_quwain", key: "emirates.umm_al_quwain" },
-  { value: "ras_al_khaimah", key: "emirates.ras_al_khaimah" },
-  { value: "fujairah", key: "emirates.fujairah" },
+  { value: "abu_dhabi", key: "emirates.abu_dhabi", available: true },
+  { value: "dubai", key: "emirates.dubai", available: false },
+  { value: "sharjah", key: "emirates.sharjah", available: false },
+  { value: "ajman", key: "emirates.ajman", available: false },
+  { value: "umm_al_quwain", key: "emirates.umm_al_quwain", available: false },
+  { value: "ras_al_khaimah", key: "emirates.ras_al_khaimah", available: false },
+  { value: "fujairah", key: "emirates.fujairah", available: false },
 ];
 
 type CouponFeedback = {
@@ -55,6 +63,43 @@ type AvailableCoupon = {
 const parseAmount = (value?: string | number | null) => {
   const parsed = Number.parseFloat(String(value ?? 0));
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseDateOnly = (value?: string | null) => {
+  if (!value) return null;
+
+  const parts = value.split("-").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+
+  const [year, month, day] = parts;
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const computeDeliveryCharge = (
+  orderTotal: number,
+  settings: DeliveryChargeSettingsDto | null
+) => {
+  if (!settings) return null;
+  if (!settings.is_active) return 0;
+  return orderTotal >= settings.min_order_for_free_delivery ? 0 : settings.delivery_charge_amount;
 };
 
 const normalizeCouponCode = (value?: string | null) =>
@@ -127,12 +172,18 @@ const CheckoutPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const toast = useToast();
 
-  const cartItems = useAppSelector(selectCartItems);
-  const cartTotal = useAppSelector(selectCartTotal);
+  const allCartItems = useAppSelector(selectCartItems);
+  const cartItems = useAppSelector(selectInStockCartItems);
+  const cartTotal = useAppSelector(selectInStockCartTotal);
   const { user } = useAppSelector((s: any) => s.auth);
+  const outOfStockCartItems = allCartItems.filter((item) => !isCartItemInStock(item));
+  const prunedOutOfStockSignature = useRef<string>("");
 
   // ─── Delivery Estimation from Tiers ───
-  const { estimation, loading: estimationLoading } = useDeliveryEstimation();
+  const { estimation, loading: estimationLoading, error: estimationError, stockDetails } = useDeliveryEstimation();
+  const emirateUnavailableMessage = t("address.errors.emirateUnsupported", {
+    defaultValue: "Delivery is currently available only in Abu Dhabi.",
+  });
 
   // ─── State ───
   const [addresses, setAddresses] = useState<AddressDto[]>([]);
@@ -156,6 +207,8 @@ const CheckoutPage: React.FC = () => {
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [couponsError, setCouponsError] = useState<string | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [deliveryChargeSettings, setDeliveryChargeSettings] = useState<DeliveryChargeSettingsDto | null>(null);
+  const [loadingDeliveryChargeSettings, setLoadingDeliveryChargeSettings] = useState(true);
   const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -180,13 +233,32 @@ const CheckoutPage: React.FC = () => {
 
   // Add address form
   const [showAddressForm, setShowAddressForm] = useState(false);
+
+  const getPhonePrefill = (rawPhone?: string) => {
+    const digitsPhone = String(rawPhone || "").replace(/[^\d+]/g, "");
+    const supportedCodes = ["+971", "+91", "+86"];
+    for (const code of supportedCodes) {
+      if (digitsPhone.startsWith(code)) {
+        return {
+          countryCode: code,
+          localNumber: digitsPhone.slice(code.length).replace(/^0+/, ""),
+        };
+      }
+    }
+    return {
+      countryCode: "+971",
+      localNumber: digitsPhone.replace(/[^\d]/g, "").replace(/^0+/, ""),
+    };
+  };
+
+  const phonePrefill = getPhonePrefill(user?.phone_number);
   const [addressForm, setAddressForm] = useState({
     label: "home", full_name: "", phone_number: "", building_name: "",
     flat_villa_number: "", street_address: "", area: "", city: "",
-    emirate: "", country: "AE", address_type: "home",
+    emirate: "abu_dhabi", country: "AE", address_type: "home",
     latitude: null as number | null, longitude: null as number | null,
   });
-  const [addrCountryCode, setAddrCountryCode] = useState("+971");
+  const [addrCountryCode, setAddrCountryCode] = useState(phonePrefill.countryCode);
   const [addrDropdownOpen, setAddrDropdownOpen] = useState(false);
   const addrDropdownRef = useRef<HTMLDivElement>(null);
   const addressCountries = [
@@ -208,7 +280,6 @@ const CheckoutPage: React.FC = () => {
     if (digits.length !== verifyReq.length) return false;
     return verifyReq.pattern ? verifyReq.pattern.test(digits) : true;
   })();
-  const allowedUaeCities = EMIRATES.map(e => t(e.key).toLowerCase());
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (addrDropdownRef.current && !addrDropdownRef.current.contains(e.target as Node)) {
@@ -220,27 +291,63 @@ const CheckoutPage: React.FC = () => {
   }, []);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [addressPhoneOtpStep, setAddressPhoneOtpStep] = useState<"idle" | "otp">("idle");
+  const [addressPhoneOtp, setAddressPhoneOtp] = useState("");
+  const [sendingAddressOtp, setSendingAddressOtp] = useState(false);
+  const [verifyingAddressOtp, setVerifyingAddressOtp] = useState(false);
+  const [addressPhoneVerified, setAddressPhoneVerified] = useState(false);
+  const [addressPhoneVerificationError, setAddressPhoneVerificationError] = useState<string | null>(null);
+
+  const accountPhoneComposed = String(user?.phone_number || "").replace(/\s+/g, "");
+  const composedAddressPhone = `${addrCountryCode}${(addressForm.phone_number || "").replace(/[^\d]/g, "").replace(/^0+/, "")}`;
+  const isAddressPhoneSameAsAccount = Boolean(accountPhoneComposed) && composedAddressPhone === accountPhoneComposed;
+  const isAddressPhoneValid = (() => {
+    const req = getPhoneRequirements(addrCountryCode);
+    const digits = (addressForm.phone_number || "").replace(/[^\d]/g, "");
+    return digits.length === req.length && (!req.pattern || req.pattern.test(digits));
+  })();
+  const isAddressPhoneOtpVerified = addressPhoneVerified || (phoneVerified && isAddressPhoneSameAsAccount);
+
+  useEffect(() => {
+    if (!showAddressForm) return;
+    const prefill = getPhonePrefill(user?.phone_number);
+    setAddrCountryCode(prefill.countryCode);
+    setAddressForm((prev) => ({
+      ...prev,
+      phone_number: prev.phone_number || prefill.localNumber,
+    }));
+    setAddressPhoneOtpStep("idle");
+    setAddressPhoneOtp("");
+    setAddressPhoneVerificationError(null);
+    setAddressPhoneVerified(false);
+  }, [showAddressForm, user?.phone_number]);
 
   const validateAddress = () => {
     const errors: Record<string, string> = {};
     if (!addressForm.full_name || addressForm.full_name.trim().length < 3) {
-      errors.full_name = "Full name must be at least 3 characters";
+      errors.full_name = t("address.errors.nameRequired", { defaultValue: "Full name must be at least 3 characters" });
     }
     const req = getPhoneRequirements(addrCountryCode);
     const digitsOnly = (addressForm.phone_number || "").replace(/[^\d]/g, "");
     if (digitsOnly.length !== req.length || (req.pattern && !req.pattern.test(digitsOnly))) {
-      errors.phone_number = `${req.name}: ${req.length} digits${req.pattern ? ", specific starting digits required" : ""}`;
+      errors.phone_number = t("address.errors.phoneInvalid", {
+        defaultValue: `${req.name}: ${req.length} digits${req.pattern ? ", specific starting digits required" : ""}`,
+        name: req.name,
+        length: req.length,
+        reqPatternStr: req.pattern ? ", specific starting digits required" : ""
+      });
     }
-    if (addrCountryCode === "+971" && addressForm.city) {
-      const c = addressForm.city.trim().toLowerCase();
-      if (!allowedUaeCities.includes(c)) {
-        errors.city = "Select a valid UAE city/emirate";
-      }
+    if (!addressForm.street_address) errors.street_address = t("address.errors.streetRequired", { defaultValue: "Street address is required" });
+    if (!addressForm.area) errors.area = t("address.errors.areaRequired", { defaultValue: "Area is required" });
+    if (!addressForm.emirate) errors.emirate = t("address.errors.emirateRequired", { defaultValue: "Please select an emirate" });
+    if (addressForm.emirate && addressForm.emirate !== "abu_dhabi") {
+      errors.emirate = emirateUnavailableMessage;
     }
-    if (!addressForm.street_address) errors.street_address = "Street address is required";
-    if (!addressForm.area) errors.area = "Area is required";
-    if (!addressForm.city) errors.city = "City is required";
-    if (!addressForm.emirate) errors.emirate = "Please select an emirate";
+    if (!isAddressPhoneOtpVerified) {
+      errors.phone_number = t("address.errors.phoneOtpRequired", {
+        defaultValue: "Please verify this phone number with OTP before saving the address.",
+      });
+    }
 
     setAddressErrors(errors);
     return Object.keys(errors).length === 0;
@@ -265,6 +372,76 @@ const CheckoutPage: React.FC = () => {
     loadAddresses();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDeliveryChargeSettings = async () => {
+      try {
+        const data = await ordersApi.getDeliveryChargeSettings();
+        if (isMounted) {
+          setDeliveryChargeSettings(data);
+        }
+      } catch (error) {
+        console.error("Failed to load delivery charge settings", error);
+        if (isMounted) {
+          setDeliveryChargeSettings(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingDeliveryChargeSettings(false);
+        }
+      }
+    };
+
+    void loadDeliveryChargeSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (outOfStockCartItems.length === 0) {
+      return;
+    }
+
+    const ids = outOfStockCartItems
+      .map((item) => item.id)
+      .sort((left, right) => left - right);
+    const signature = ids.join(",");
+
+    if (!signature || signature === prunedOutOfStockSignature.current) {
+      return;
+    }
+
+    prunedOutOfStockSignature.current = signature;
+    let cancelled = false;
+
+    const pruneOutOfStockItems = async () => {
+      await Promise.all(ids.map((id) => cartsApi.removeItem(id).catch(() => null)));
+
+      if (cancelled) return;
+
+      dispatch(fetchCartRequest());
+      toast.show(
+        t("alerts.removedOutOfStockBeforeCheckout", {
+          count: ids.length,
+          defaultValue:
+            ids.length === 1
+              ? "1 out-of-stock item was removed from checkout."
+              : `${ids.length} out-of-stock items were removed from checkout.`,
+        }),
+        "warning"
+      );
+    };
+
+    void pruneOutOfStockItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, outOfStockCartItems, t, toast]);
+
   // ─── Computed ───
   useEffect(() => {
     let isMounted = true;
@@ -283,15 +460,10 @@ const CheckoutPage: React.FC = () => {
 
         const normalizedCoupons = rawCoupons
           .filter((coupon: any) => {
-            // Only show active coupons
             if (coupon.is_active !== true) return false;
 
-            // Only show coupons that haven't reached their usage limit
-            if (
-              coupon.usage_limit !== null &&
-              coupon.usage_limit !== undefined &&
-              coupon.used_count >= coupon.usage_limit
-            ) {
+            const validTo = coupon.valid_to ? new Date(coupon.valid_to) : null;
+            if (validTo && !Number.isNaN(validTo.getTime()) && validTo.getTime() < Date.now()) {
               return false;
             }
 
@@ -327,15 +499,39 @@ const CheckoutPage: React.FC = () => {
   const summarySubtotal = checkoutSummary ? parseAmount(checkoutSummary.cart_total_before_discount) : cartTotal;
   const summaryDiscount = checkoutSummary ? parseAmount(checkoutSummary.discount_amount) : 0;
   const summaryAfterDiscount = checkoutSummary ? parseAmount(checkoutSummary.cart_total_after_discount) : cartTotal;
-  const summaryDeliveryCharge = checkoutSummary ? parseAmount(checkoutSummary.delivery_charge) : null;
+  const previewDeliveryCharge = computeDeliveryCharge(summaryAfterDiscount, deliveryChargeSettings);
+  const summaryDeliveryCharge = checkoutSummary ? parseAmount(checkoutSummary.delivery_charge) : previewDeliveryCharge;
   const summaryTip = checkoutSummary ? parseAmount(checkoutSummary.tip_amount) : effectiveTip;
   const finalTotal = checkoutSummary
     ? parseAmount(checkoutSummary.final_total)
-    : Number((cartTotal + effectiveTip).toFixed(2));
+    : Number((cartTotal + effectiveTip + (summaryDeliveryCharge ?? 0)).toFixed(2));
 
   // Min date = earliest delivery date from estimation, or UAE today as fallback
   const uaeTodayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
   const minDate = estimation?.estimated_delivery_date ?? uaeTodayDate;
+  const deliveryBaseDate = parseDateOnly(minDate) ?? parseDateOnly(uaeTodayDate) ?? new Date();
+  const deliveryWindowEnd = addDays(deliveryBaseDate, 1);
+  const visibleDeliveryDates = Array.from({ length: 7 }, (_, index) => addDays(deliveryBaseDate, index - 2));
+  const selectedDeliveryDate = parseDateOnly(deliveryDate);
+
+  const isDateSelectable = (date: Date) =>
+    date.getTime() >= deliveryBaseDate.getTime() && date.getTime() <= deliveryWindowEnd.getTime();
+
+  const formatDeliveryDate = (date: Date) =>
+    new Intl.DateTimeFormat(isArabic ? "ar-EG" : "en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(date);
+
+  useEffect(() => {
+    if (!deliveryDate) return;
+
+    if (!selectedDeliveryDate || !isDateSelectable(selectedDeliveryDate)) {
+      setDeliveryDate("");
+      setDeliverySlot("");
+    }
+  }, [deliveryDate, minDate]);
 
   // ─── Fetch Available Slots ───
   useEffect(() => {
@@ -398,7 +594,7 @@ const CheckoutPage: React.FC = () => {
     setSummaryLoading(true);
     setSummaryError(null);
 
-      try {
+    try {
       const summary = await ordersApi.checkoutSummary({
         address_id: selectedAddressId,
         coupon_code: appliedCouponCode || undefined,
@@ -532,13 +728,19 @@ const CheckoutPage: React.FC = () => {
       setAddressForm({
         label: "home", full_name: "", phone_number: "", building_name: "",
         flat_villa_number: "", street_address: "", area: "", city: "",
-        emirate: "", country: "AE", address_type: "home",
+        emirate: "abu_dhabi", country: "AE", address_type: "home",
         latitude: null, longitude: null,
       });
+      const prefill = getPhonePrefill(user?.phone_number);
+      setAddrCountryCode(prefill.countryCode);
+      setAddressPhoneOtpStep("idle");
+      setAddressPhoneOtp("");
+      setAddressPhoneVerificationError(null);
+      setAddressPhoneVerified(false);
       setAddressErrors({});
     } catch (err: any) {
       console.error("Failed to save address", err);
-      const serverMsg = err?.response?.data?.error || "Failed to save address. Please try again.";
+      const serverMsg = err?.response?.data?.error || t("address.errors.saveFailed", { defaultValue: "Failed to save address. Please try again." });
       toast.show(serverMsg, "error");
     } finally {
       setSavingAddress(false);
@@ -548,6 +750,16 @@ const CheckoutPage: React.FC = () => {
   // ─── Submit Checkout ───
   const handlePlaceOrder = async () => {
     setAttemptedSubmit(true);
+
+    if (cartItems.length === 0) {
+      toast.show(
+        t("alerts.inStockItemsRequired", {
+          defaultValue: "Your cart has no in-stock items available for checkout.",
+        }),
+        "warning"
+      );
+      return;
+    }
 
     if (!phoneVerified) {
       // Open verification modal if not verified
@@ -562,12 +774,12 @@ const CheckoutPage: React.FC = () => {
     }
 
     if (!deliveryDate) {
-      toast.show("Please select a preferred delivery date", "error");
+      toast.show(t("alerts.selectDeliveryDate", { defaultValue: "Please select a preferred delivery date" }), "error");
       return;
     }
 
     if (!deliverySlot) {
-      toast.show("Please select a preferred delivery slot", "error");
+      toast.show(t("alerts.selectDeliverySlot", { defaultValue: "Please select a preferred delivery slot" }), "error");
       return;
     }
 
@@ -632,7 +844,13 @@ const CheckoutPage: React.FC = () => {
         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
           <Truck size={36} className="text-slate-300" />
         </div>
-        <p className="text-slate-500 font-semibold">{t("emptyCart.title")}</p>
+        <p className="text-slate-500 font-semibold">
+          {allCartItems.length > 0
+            ? t("emptyCart.onlyOutOfStock", {
+              defaultValue: "All items in your cart are currently out of stock.",
+            })
+            : t("emptyCart.title")}
+        </p>
         <button
           onClick={() => navigate("/products")}
           className="px-6 py-2.5 bg-cyan-600 text-white rounded-full text-sm font-bold hover:bg-cyan-700 transition-colors"
@@ -647,7 +865,7 @@ const CheckoutPage: React.FC = () => {
     <div className="min-h-screen bg-[#F8FAFB] font-sans text-slate-800 pb-24">
       {/* Header */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
+        <div className="  mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           <button onClick={() => navigate("/cart")} className="text-slate-400 hover:text-cyan-600 transition-colors">
             <ArrowLeft size={20} />
           </button>
@@ -655,7 +873,7 @@ const CheckoutPage: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+      <main className="  mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         {/* ═══ Left Column - Form ═══ */}
         <div className="lg:col-span-2 space-y-6">
 
@@ -702,7 +920,7 @@ const CheckoutPage: React.FC = () => {
                           <Briefcase size={14} className="text-cyan-600" />
                         )}
                         <span className="text-xs font-bold uppercase tracking-wider text-cyan-600">
-                          {addr.label || "Address"}
+                          {addr.label || t("address.defaultLabel", { defaultValue: "Address" })}
                         </span>
                         {selectedAddressId === addr.id && (
                           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-600 text-white">
@@ -766,6 +984,10 @@ const CheckoutPage: React.FC = () => {
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t("fields.pinLocation", "Pin Your Location")}</p>
                       <GoogleMapPicker
                         onSelect={(result: MapPickerResult) => {
+                          const normalizedEmirate = result.emirate
+                            ? result.emirate.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_+|_+$/g, "")
+                            : "";
+
                           setAddressForm((prev) => ({
                             ...prev,
                             latitude: result.lat,
@@ -773,10 +995,21 @@ const CheckoutPage: React.FC = () => {
                             ...(result.street ? { street_address: result.street } : {}),
                             ...(result.area ? { area: result.area } : {}),
                             ...(result.city ? { city: result.city } : {}),
-                            ...(result.emirate
-                              ? { emirate: result.emirate.toLowerCase().replace(/\s+/g, "_") }
-                              : {}),
+                            ...(normalizedEmirate ? { emirate: normalizedEmirate } : {}),
                           }));
+
+                          setAddressErrors((prev) => {
+                            const next = { ...prev };
+                            if (result.street) delete next.street_address;
+                            if (result.area) delete next.area;
+                            if (result.city) delete next.city;
+                            if (normalizedEmirate && normalizedEmirate !== "abu_dhabi") {
+                              next.emirate = emirateUnavailableMessage;
+                            } else if (normalizedEmirate) {
+                              delete next.emirate;
+                            }
+                            return next;
+                          });
                         }}
                       />
                     </div>
@@ -837,14 +1070,14 @@ const CheckoutPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setAddrDropdownOpen(!addrDropdownOpen)}
-                              className="h-[42px] px-3 rounded-xl border border-slate-200 bg-white flex items-center gap-2 text-sm hover:bg-slate-50"
+                              className="h-10.5 px-3 rounded-xl border border-slate-200 bg-white flex items-center gap-2 text-sm hover:bg-slate-50"
                             >
-                              <img src={(addressCountries.find(c => c.code === addrCountryCode) || addressCountries[0]).flag} alt="flag" className="w-5 h-[14px] object-cover rounded-sm" />
+                              <img src={(addressCountries.find(c => c.code === addrCountryCode) || addressCountries[0]).flag} alt="flag" className="w-5 h-3.5 object-cover rounded-sm" />
                               <span className="text-xs font-medium text-slate-700">{addrCountryCode}</span>
                               <ChevronDown size={12} className={`text-slate-400 transition-transform ${addrDropdownOpen ? "rotate-180" : ""}`} />
                             </button>
                             {addrDropdownOpen && (
-                          <div className={`absolute top-full ${isArabic ? 'right-0' : 'left-0'} mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-50`}>
+                              <div className={`absolute top-full ${isArabic ? 'right-0' : 'left-0'} mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-50`}>
                                 {addressCountries.map((c) => (
                                   <button
                                     key={c.code}
@@ -852,7 +1085,7 @@ const CheckoutPage: React.FC = () => {
                                     onClick={() => { setAddrCountryCode(c.code); setAddrDropdownOpen(false); }}
                                     className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-cyan-50 ${c.code === addrCountryCode ? "bg-cyan-50 text-cyan-600" : "text-slate-700"}`}
                                   >
-                                    <img src={c.flag} alt={c.name} className="w-5 h-[14px] object-cover rounded-sm" />
+                                    <img src={c.flag} alt={c.name} className="w-5 h-3.5 object-cover rounded-sm" />
                                     <span className="font-medium">{c.name}</span>
                                     <span className="ms-auto text-slate-400">{c.code}</span>
                                   </button>
@@ -865,6 +1098,10 @@ const CheckoutPage: React.FC = () => {
                             onChange={(e) => {
                               const v = e.target.value.replace(/[^\d]/g, "");
                               setAddressForm((prev) => ({ ...prev, phone_number: v }));
+                              setAddressPhoneOtpStep("idle");
+                              setAddressPhoneOtp("");
+                              setAddressPhoneVerificationError(null);
+                              setAddressPhoneVerified(false);
                               if (addressErrors.phone_number) {
                                 setAddressErrors(prev => {
                                   const next = { ...prev };
@@ -882,6 +1119,95 @@ const CheckoutPage: React.FC = () => {
                         {addressErrors.phone_number && (
                           <p className="text-[10px] text-rose-500 font-medium px-1">{addressErrors.phone_number}</p>
                         )}
+                        {addressPhoneVerificationError && (
+                          <p className="text-[10px] text-rose-500 font-medium px-1">{addressPhoneVerificationError}</p>
+                        )}
+
+                        {!isAddressPhoneOtpVerified && (
+                          <div className="px-1 pt-1 space-y-2">
+                            {addressPhoneOtpStep === "idle" ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setAddressPhoneVerificationError(null);
+                                  if (!isAddressPhoneValid) {
+                                    const req = getPhoneRequirements(addrCountryCode);
+                                    setAddressPhoneVerificationError(`${req.name}: ${req.length} digits${req.pattern ? ", specific starting digits required" : ""}`);
+                                    return;
+                                  }
+                                  try {
+                                    setSendingAddressOtp(true);
+                                    await profileApi.sendProfileOtp({
+                                      otp_type: "phone",
+                                      phone_number: composedAddressPhone,
+                                    } as any);
+                                    setAddressPhoneOtpStep("otp");
+                                  } catch (err: any) {
+                                    const apiErr = err?.response?.data;
+                                    const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : t("verifyPhone.sendError", { defaultValue: "Failed to send OTP. Try again." }));
+                                    setAddressPhoneVerificationError(detail);
+                                  } finally {
+                                    setSendingAddressOtp(false);
+                                  }
+                                }}
+                                disabled={sendingAddressOtp || !isAddressPhoneValid}
+                                className="text-[10px] font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+                              >
+                                {sendingAddressOtp ? t("verifyPhone.sending", "Sending...") : t("address.verifyPhone", { defaultValue: "Verify this phone with OTP" })}
+                              </button>
+                            ) : (
+                              <div className="flex gap-2">
+                                <input
+                                  value={addressPhoneOtp}
+                                  onChange={(e) => setAddressPhoneOtp(e.target.value.replace(/\D/g, ""))}
+                                  maxLength={6}
+                                  placeholder={t("fields.digits", { count: 6, defaultValue: "6 digits" })}
+                                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setAddressPhoneVerificationError(null);
+                                    if (addressPhoneOtp.length < 6) {
+                                      setAddressPhoneVerificationError(t("verifyPhone.otpError", "Enter the 6-digit OTP."));
+                                      return;
+                                    }
+                                    try {
+                                      setVerifyingAddressOtp(true);
+                                      await profileApi.verifyProfileOtp({
+                                        otp_type: "phone",
+                                        otp_code: addressPhoneOtp,
+                                        phone_number: composedAddressPhone,
+                                      } as any);
+                                      setAddressPhoneVerified(true);
+                                      setAddressPhoneOtpStep("idle");
+                                      setAddressPhoneOtp("");
+                                      setAddressErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next.phone_number;
+                                        return next;
+                                      });
+                                      toast.show(t("verifyPhone.success", { defaultValue: "Phone verified. You can now place your order." }), "success");
+                                    } catch (err: any) {
+                                      const apiErr = err?.response?.data;
+                                      const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : t("verifyPhone.verifyError", { defaultValue: "OTP verification failed." }));
+                                      setAddressPhoneVerificationError(detail);
+                                    } finally {
+                                      setVerifyingAddressOtp(false);
+                                    }
+                                  }}
+                                  disabled={verifyingAddressOtp || addressPhoneOtp.length < 6}
+                                  className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  {verifyingAddressOtp ? t("verifyPhone.verifying", "Verifying...") : t("verifyPhone.verifyAndContinue", "Verify")}
+                                </button>
+                              </div>
+                            )}
+                            {isAddressPhoneOtpVerified && (
+                              <p className="text-[10px] text-emerald-600 font-bold">{t("verifyPhone.success", { defaultValue: "Phone verified. You can now place your order." })}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Emirate Dropdown */}
@@ -892,19 +1218,21 @@ const CheckoutPage: React.FC = () => {
                             value={addressForm.emirate}
                             onChange={(e) => {
                               setAddressForm((prev) => ({ ...prev, emirate: e.target.value }));
-                              if (addressErrors.emirate) {
-                                setAddressErrors(prev => {
-                                  const next = { ...prev };
+                              setAddressErrors(prev => {
+                                const next = { ...prev };
+                                if (e.target.value && e.target.value !== "abu_dhabi") {
+                                  next.emirate = emirateUnavailableMessage;
+                                } else {
                                   delete next.emirate;
-                                  return next;
-                                });
-                              }
+                                }
+                                return next;
+                              });
                             }}
                             className={`w-full px-3.5 py-2.5 bg-white border ${addressErrors.emirate ? "border-rose-400 focus:ring-rose-500/30" : "border-slate-200 focus:ring-cyan-500/30"} rounded-xl text-sm appearance-none focus:ring-2 focus:border-cyan-400 outline-none transition-all`}
                           >
                             <option value="">{t("address.fields.emirate.placeholder")}</option>
                             {EMIRATES.map((em) => (
-                              <option key={em.value} value={em.value}>{t(em.key)}</option>
+                              <option key={em.value} value={em.value}>{em.available ? t(em.key) : `${t(em.key)} (${t("address.notAvailable", { defaultValue: "Not available" })})`}</option>
                             ))}
                           </select>
                           <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -918,17 +1246,25 @@ const CheckoutPage: React.FC = () => {
                     <div className="flex gap-3 pt-2">
                       <button
                         onClick={handleSaveAddress}
-                        disabled={savingAddress}
+                        disabled={savingAddress || !isAddressPhoneOtpVerified}
                         className="px-5 py-2.5 bg-cyan-600 text-white rounded-xl text-sm font-bold hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {savingAddress && <Loader2 size={14} className="animate-spin" />}
                         {savingAddress ? t("address.adding") : t("address.addNew")}
                       </button>
                       <button
-                        onClick={() => setShowAddressForm(false)}
+                        onClick={() => {
+                          const prefill = getPhonePrefill(user?.phone_number);
+                          setShowAddressForm(false);
+                          setAddrCountryCode(prefill.countryCode);
+                          setAddressPhoneOtpStep("idle");
+                          setAddressPhoneOtp("");
+                          setAddressPhoneVerificationError(null);
+                          setAddressPhoneVerified(false);
+                        }}
                         className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
                       >
-                        Cancel
+                        {t("address.cancel", { defaultValue: "Cancel" })}
                       </button>
                     </div>
                   </div>
@@ -978,7 +1314,7 @@ const CheckoutPage: React.FC = () => {
                       {estimation.items_breakdown.map((item: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-xs">
                           <span className="text-slate-700 font-medium truncate flex-1">{item.product_name || t("delivery.fallbackProductName", { index: idx + 1, defaultValue: `Product ${idx + 1}` })}</span>
-                           <span className={`text-slate-500 ${isArabic ? 'mr-2' : 'ml-2'}`}>{t("delivery.qty", { count: item.quantity, defaultValue: `Qty: ${item.quantity}` })}</span>
+                          <span className={`text-slate-500 ${isArabic ? 'mr-2' : 'ml-2'}`}>{t("delivery.qty", { count: item.quantity, defaultValue: `Qty: ${item.quantity}` })}</span>
                           <span className={`${isArabic ? 'mr-2' : 'ml-2'} px-2.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold`}>
                             {t("delivery.daysShort", { count: item.delivery_days, defaultValue: `${item.delivery_days}d` })}
                           </span>
@@ -988,26 +1324,88 @@ const CheckoutPage: React.FC = () => {
                   </div>
                 )}
               </div>
+            ) : estimationError ? (
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Info size={16} className="text-rose-600" />
+                  <p className="text-xs font-bold text-rose-700">{t("delivery.estimateFailed", "Delivery estimate failed")}</p>
+                </div>
+                <p className="text-xs text-rose-700">{estimationError} If you have to buy other products, remove this from your cart.</p>
+                {stockDetails?.length ? (
+                  <div className="space-y-2 text-xs text-rose-700">
+                    <p className="font-medium">{t("delivery.stockDetails", "Insufficient stock for these items:")}</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {stockDetails.map((item) => (
+                        <li key={item.product_id}>
+                          {item.product_name}: {t("delivery.requestedQuantity", { defaultValue: "Requested" })} {item.requested_quantity}, {t("delivery.availableStock", { defaultValue: "Available" })} {item.available_stock}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Date */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Calendar size={12} /> {t("delivery.date")}
                 </label>
-                <input
-                  type="date"
-                  value={deliveryDate}
-                  min={minDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val && val < minDate) return;
-                    setDeliveryDate(val);
-                  }}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 outline-none transition-all"
-                />
-                <p className="text-[10px] text-slate-400">Earliest: {estimationLoading ? "…" : minDate}</p>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+                    <div>
+                      <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        {t("delivery.selectWindow", { defaultValue: "Selectable delivery window" })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {t("delivery.windowHint", {
+                          defaultValue: `Only dates from ${formatDeliveryDate(deliveryBaseDate)} to ${formatDeliveryDate(deliveryWindowEnd)} can be selected.`,
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-[10px] font-medium text-slate-500 text-right">
+                      {t("delivery.earliest", { defaultValue: "Earliest:" })} {estimationLoading ? "…" : minDate}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                    {visibleDeliveryDates.map((date) => {
+                      const dateValue = toDateInputValue(date);
+                      const selectable = isDateSelectable(date);
+                      const selected = deliveryDate === dateValue;
+
+                      return (
+                        <button
+                          key={dateValue}
+                          type="button"
+                          disabled={!selectable}
+                          onClick={() => selectable && setDeliveryDate(dateValue)}
+                          className={`rounded-xl border px-3 py-3 text-left transition-all duration-200 ${
+                            selected
+                              ? "border-cyan-500 bg-cyan-50 text-cyan-900 shadow-sm ring-2 ring-cyan-500/15"
+                              : selectable
+                                ? "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-cyan-50"
+                                : "border-slate-200 bg-slate-100 text-slate-400 opacity-50 blur-[1px] cursor-not-allowed"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider">
+                              {date.toLocaleDateString(isArabic ? "ar-EG" : "en-GB", { weekday: "short" })}
+                            </span>
+                            {selected && <Check size={12} className="text-cyan-600 shrink-0" />}
+                          </div>
+                          <div className="mt-1 text-lg font-black leading-none">
+                            {date.getDate()}
+                          </div>
+                          <div className="mt-1 text-[10px] font-medium opacity-80">
+                            {formatDeliveryDate(date)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* Slot */}
@@ -1119,7 +1517,7 @@ const CheckoutPage: React.FC = () => {
                   exit={{ opacity: 0, height: 0 }}
                 >
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-sm font-bold text-slate-500">AED</span>
+                    <span className="text-sm font-bold text-slate-500">{t("currency.aedCode", { defaultValue: "AED" })}</span>
                     {/* ✅ Updated Input with hide-arrows class and + Button */}
                     <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/30 transition-all overflow-hidden">
                       <input
@@ -1441,9 +1839,21 @@ const CheckoutPage: React.FC = () => {
 
               {summaryDeliveryCharge === null && (
                 <p className="text-xs text-slate-400">
-                  {t("summary.deliveryRule", {
-                    defaultValue: "Delivery is free for orders AED 40 above.",
-                  })}
+                  {loadingDeliveryChargeSettings
+                    ? t("summary.deliveryRuleLoading", {
+                        defaultValue: "Loading delivery charge settings...",
+                      })
+                    : deliveryChargeSettings
+                      ? deliveryChargeSettings.is_active
+                        ? t("summary.deliveryRule", {
+                            defaultValue: `Delivery is free for orders AED ${deliveryChargeSettings.min_order_for_free_delivery.toFixed(2)} and above. Orders below that pay AED ${deliveryChargeSettings.delivery_charge_amount.toFixed(2)}.`,
+                          })
+                        : t("summary.deliveryDisabled", {
+                            defaultValue: "Delivery charges are currently disabled.",
+                          })
+                      : t("summary.deliveryRule", {
+                          defaultValue: "Delivery is calculated using the current delivery settings.",
+                        })}
                 </p>
               )}
 
@@ -1513,9 +1923,15 @@ const CheckoutPage: React.FC = () => {
                   </p>
                 </div>
               )}
+              {estimationError && (
+                <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 flex gap-2">
+                  <Info size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-rose-700 font-medium">{estimationError}</p>
+                </div>
+              )}
               <button
                 onClick={handlePlaceOrder}
-                disabled={submitting || summaryLoading || !selectedAddressId || !phoneVerified}
+                disabled={submitting || summaryLoading || !selectedAddressId || !phoneVerified || !!estimationError}
                 className="w-full py-4 bg-linear-to-r from-cyan-600 to-cyan-700 text-white rounded-2xl font-black text-base hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-xl shadow-cyan-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
                 {submitting ? (
@@ -1539,7 +1955,7 @@ const CheckoutPage: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            className="fixed inset-0 z-60 flex items-center justify-center p-4"
           >
             <div className="absolute inset-0 bg-black/50" onClick={() => setVerifyOpen(false)} />
             <div className="relative bg-white rounded-2xl border border-slate-200 w-full max-w-sm p-5 z-10">
@@ -1559,7 +1975,7 @@ const CheckoutPage: React.FC = () => {
                       <select
                         value={verifyCountry}
                         onChange={(e) => { setVerifyCountry(e.target.value); }}
-                        className="h-[42px] px-2 rounded-xl border border-slate-200 bg-white text-sm"
+                        className="h-10.5 px-2 rounded-xl border border-slate-200 bg-white text-sm"
                       >
                         {addressCountries.map((c) => (
                           <option key={c.code} value={c.code}>{c.code}</option>
@@ -1598,7 +2014,7 @@ const CheckoutPage: React.FC = () => {
                         setVerifyStep("otp");
                       } catch (err: any) {
                         const apiErr = err?.response?.data;
-                        const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : "Failed to send OTP. Try again.");
+                        const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : t("verifyPhone.sendError", { defaultValue: "Failed to send OTP. Try again." }));
                         setVerifyError(detail);
                       } finally {
                         setSendingOtp(false);
@@ -1647,10 +2063,10 @@ const CheckoutPage: React.FC = () => {
                           const me = res?.user || (await profileApi.getMe());
                           dispatch(setUser(me));
                           setVerifyOpen(false);
-                          toast.show("Phone verified. You can now place your order.", "success");
+                          toast.show(t("verifyPhone.success", { defaultValue: "Phone verified. You can now place your order." }), "success");
                         } catch (err: any) {
                           const apiErr = err?.response?.data;
-                          const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : "OTP verification failed.");
+                          const detail = apiErr?.detail || apiErr?.message || (typeof apiErr === "string" ? apiErr : t("verifyPhone.verifyError", { defaultValue: "OTP verification failed." }));
                           setVerifyError(detail);
                         } finally {
                           setVerifyingOtp(false);

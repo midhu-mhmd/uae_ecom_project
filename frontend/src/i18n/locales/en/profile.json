@@ -4,11 +4,16 @@
             "personalInfo": "Personal Info",
             "myOrders": "My Orders",
             "addresses": "Addresses",
+            "reviews": "Reviews",
+            "referrals": "Referrals",
+            "coupons": "Coupons",
+            "referralCoupons": "Referral & Coupons",
             "signOut": "Sign Out"
         },
         "auth": {
             "loginRequired": "Please login to view your profile.",
             "goToLogin": "Go to Login",
+            "backToProfile": "Back to Profile",
             "accountMember": "Account Member"
         },
         "personalInfo": {
@@ -87,6 +92,96 @@
             "default": "Default",
             "setAsDefault": "Set as Default",
             "saveAddress": "Save Address"
+        },
+        "reviews": {
+            "title": "My Reviews",
+            "subtitle": "All reviews you have written",
+            "empty": "You haven’t written any reviews yet.",
+            "reviewLabel": "Review",
+            "view": "View",
+            "hide": "Hide",
+            "adminResponse": "Admin Response",
+            "edit": "Edit",
+            "cancel": "Cancel",
+            "save": "Save",
+            "saving": "Saving…",
+            "editReview": "Edit Review",
+            "addPhotos": "Add Photos (Optional)",
+            "updateComment": "Update your comment",
+            "loading": "Loading reviews…"
+        },
+        "referrals": {
+            "combinedTitle": "Referral & Coupons",
+            "title": "Friends Who Refer",
+            "subtitle": "Stay Friends Forever",
+            "description": "When you refer your friend to Simak Fresh, you get 20% OFF on your next order and so does your friend. Then you both eat healthy ever after!",
+            "codeLabel": "Your Referral Code",
+            "copyCode": "Copy code",
+            "startReferring": "Start Referring, Start Earning!",
+            "copySuccess": "Referral code copied!",
+            "copyError": "Failed to copy",
+            "linkCopied": "Referral link copied!",
+            "steps": {
+                "one": {
+                    "title": "Invite a Friend",
+                    "desc": "Share your unique referral code with friends and family. Ask them to register on Simak Fresh."
+                },
+                "two": {
+                    "title": "Friend Makes First Purchase",
+                    "desc": "Your friend enters your referral code at checkout on their first order."
+                },
+                "three": {
+                    "title": "Both Get 20% OFF",
+                    "desc": "Your friend gets 20% OFF instantly! Once the order is delivered, you also receive a 20% discount coupon."
+                }
+            },
+            "copyLink": "Copy Link",
+            "howItWorks": "Here is How it ",
+            "works": "Works",
+            "stats": {
+                "invited": "Friends Invited",
+                "successful": "Successful",
+                "earned": "Coupons Earned"
+            },
+            "terms": {
+                "title": "Terms and Conditions",
+                "1": "Your 20% Discount Coupon is valid for 3 months from the date of issue and can be used only once.",
+                "2": "Maximum discount that can be availed is AED 20.",
+                "3": "This offer is ONLY valid in UAE.",
+                "4": "This offer is not transferable.",
+                "5": "Simak Fresh reserves the right to modify or terminate this program at any time.",
+                "6": "The referral code must be applied at checkout during the friend's first purchase."
+            }
+        },
+        "coupons": {
+            "title": "Available Coupons",
+            "subtitle": "Your active discounts and rewards at a glance.",
+            "empty": "No coupons are available right now.",
+            "emptyHint": "Earn one through referrals or check back after a new campaign goes live.",
+            "error": "Unable to load your coupons right now.",
+            "copied": "Coupon code copied!",
+            "available": "Available coupon",
+            "availableCoupon": "Available coupon",
+            "reward": "Reward coupon",
+            "referralReward": "Referral reward",
+            "firstOrderReward": "First order reward",
+            "discount": "Discount",
+            "validUntil": "Valid until",
+            "usage": "Usage",
+            "status": "Status",
+            "active": "Active",
+            "inactive": "Inactive",
+            "expired": "Expired",
+            "redeemed": "Redeemed",
+            "deleted": "Deleted",
+            "noExpiry": "No expiry",
+            "unlimited": "Unlimited",
+            "exhausted": "Exhausted",
+            "stats": {
+                "available": "Available",
+                "referral": "Referral",
+                "firstOrder": "First Order"
+            }
         },
         "emirates": {
             "abu_dhabi": "Abu Dhabi",
